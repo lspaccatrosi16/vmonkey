@@ -13,6 +13,7 @@ let ten = 0xa;
 let add = fn(x, y) {
 x + y + 0o777 + 0b1110;
 };
+# This is a comment with things
 let result = add(five, ten);
 !-/*5;
 5 < 10 >= 5;
@@ -25,7 +26,8 @@ if (5 < 10 ) {
 
 10 == 10;
 10 != 9;
-'	
+const a = ten;
+'
 	tests := [
 		TokenSequenceTest{token.TokenType.let, 'let'},
 		TokenSequenceTest{token.TokenType.ident, 'five'},
@@ -57,6 +59,7 @@ if (5 < 10 ) {
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 		TokenSequenceTest{token.TokenType.r_squirly, '}'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'}, // 30
+		TokenSequenceTest{token.TokenType.comment, '# This is a comment with things'},
 		TokenSequenceTest{token.TokenType.let, 'let'},
 		TokenSequenceTest{token.TokenType.ident, 'result'},
 		TokenSequenceTest{token.TokenType.assign, '='},
@@ -103,6 +106,11 @@ if (5 < 10 ) {
 		TokenSequenceTest{token.TokenType.literal, '10'},
 		TokenSequenceTest{token.TokenType.neq, '!='}, // 75
 		TokenSequenceTest{token.TokenType.literal, '9'},
+		TokenSequenceTest{token.TokenType.semicolon, ';'},
+		TokenSequenceTest{token.TokenType.@const, 'const'},
+		TokenSequenceTest{token.TokenType.ident, 'a'},
+		TokenSequenceTest{token.TokenType.assign, '='},
+		TokenSequenceTest{token.TokenType.ident, 'ten'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 	]
 

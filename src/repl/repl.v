@@ -1,7 +1,6 @@
 module repl
 
 import os
-import token
 import lexer
 
 const prompt = '>>'
@@ -18,8 +17,16 @@ pub fn start() {
 
 		mut l := lexer.new_lexer(line)
 
-		for tok := l.next_token(); tok.token_type != token.TokenType.eof; tok = l.next_token() {
-			print('${tok.token_type.str().to_upper()} : ${tok.literal}\n')
+		tokens := l.run_lexer()
+
+		if l.lex_errors.len >= 1 {
+			for e in l.lex_errors {
+				println(e.str())
+			}
+		} else {
+			for tok in tokens {
+				print('${tok.token_type.str().to_upper()} : ${tok.literal}\n')
+			}
 		}
 	}
 }
