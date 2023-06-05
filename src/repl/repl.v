@@ -1,22 +1,43 @@
 module repl
 
-import os
 import lexer
 import parser
-
-const prompt = '>>'
+import readline
+import term
 
 pub fn start() {
-	for {
-		print(repl.prompt)
+	term.clear()
+	width, _ := term.get_terminal_size()
+	divider := '='.repeat(width)
+	println('Enter vmonkey program')
+	println('${'.rs':-10}: restart input')
+	println('${'.exit':-10}: exit')
+	top: for {
+		println(divider)
+		mut ipt_lines := []string{}
 
-		line := os.get_line()
+		for {
+			line := readline.read_line('') or { '' }
+			ipt_lines << line
 
-		if line == '' || line == 'exit' {
-			return
+			if line == '.rs\n' {
+				continue top
+			} else if line == '.exit\n' {
+				break top
+			}
+
+			if line == '' || line == '\n' {
+				break
+			}
 		}
 
-		mut l := lexer.new_lexer(line)
+		prog_ipt := ipt_lines.join('').trim(' \n')
+
+		if prog_ipt == '' {
+			break
+		}
+
+		mut l := lexer.new_lexer(prog_ipt)
 
 		tokens := l.run_lexer()
 
@@ -28,7 +49,7 @@ pub fn start() {
 			continue
 		}
 
-		mut p := parser.new_parser(tokens)
+		mut p := parser.new_parser(tokens, prog_ipt)
 		program := p.parse_program()
 
 		if p.parse_errors.len >= 1 {
@@ -42,6 +63,12 @@ pub fn start() {
 
 		for stmt in statements {
 			println(stmt.literal())
+		}
+
+		if statements.len == 0 {
+			for tok in tokens {
+				print('${tok.token_type.str().to_upper()} : ${tok.literal}\n')
+			}
 		}
 	}
 }

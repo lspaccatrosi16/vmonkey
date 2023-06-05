@@ -9,6 +9,7 @@ mut:
 	position      i32
 	read_position i32
 	current_line  i32
+	line_col      i32
 pub mut:
 	lex_errors []error.BaseError
 	ch         rune
@@ -25,6 +26,7 @@ fn (mut l Lexer) read_char() {
 
 	l.position = l.read_position
 	l.read_position++
+	l.line_col++
 }
 
 fn (l Lexer) peak() rune {
@@ -35,7 +37,8 @@ fn (mut l Lexer) next_token() token.Token {
 	tkn := l.int_next_token()
 
 	if tkn.token_type == token.TokenType.illegal {
-		err := lexer_error(tkn.line, tkn.col, 'Illegal character(s) found in source')
+		err := lexer_error(tkn.line, tkn.col, 'Illegal character(s) found in source',
+			l.input)
 		l.lex_errors << err
 	}
 
@@ -112,7 +115,7 @@ fn (mut l Lexer) int_next_token() token.Token {
 
 fn (mut l Lexer) new_token(tokenType token.TokenType, ch token.Literal) token.Token {
 	line := l.current_line
-	col := l.position
+	col := l.line_col
 	return token.new_token(tokenType, ch, line, col)
 }
 
@@ -145,6 +148,7 @@ fn (mut l Lexer) skip_whitespace() {
 	for l.ch == ` ` || l.ch == `\t` || l.ch == `\r` || l.ch == `\n` {
 		if l.ch == `\n` {
 			l.current_line++
+			l.line_col = 0
 		}
 		l.read_char()
 	}
@@ -255,7 +259,7 @@ fn is_digit_or_point(ch rune) bool {
 pub fn new_lexer(input string) &Lexer {
 	mut l := &Lexer{
 		input: input + '\n'
-		current_line: 1
+		current_line: 0
 	}
 	l.read_char()
 	return l
