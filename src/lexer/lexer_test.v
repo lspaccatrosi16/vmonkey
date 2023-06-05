@@ -124,4 +124,6 @@ const a = ten;
 		assert tok.token_type == tt.expected_type, 'Expected: ${tt.expected_type} Got: ${tok.token_type} at TEST:${
 			i + 1}'
 	}
+
+	assert l.lex_errors.len == 0, 'Lexer ecounted lex-errors'
 }

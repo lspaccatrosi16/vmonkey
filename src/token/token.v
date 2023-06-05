@@ -13,6 +13,10 @@ pub:
 	literal    string    [required]
 }
 
+pub fn (t Token) str() string {
+	return '${t.token_type}'
+}
+
 pub enum TokenType {
 	illegal
 	eof
@@ -97,4 +101,8 @@ pub fn new_token(tokenType TokenType, ch Literal, line i32, col i32) Token {
 		token_type: TokenType.illegal
 		literal: ''
 	}
+}
+
+pub fn eof_token() Token {
+	return new_token(TokenType.eof, '', -1, -1)
 }

@@ -4,13 +4,13 @@ build:
 run: build 
 	@./dist/vmonkey
 
-test: test-lexer test-parser
+test: test_lexer test_parser
 
-test-lexer: 
+test_lexer: 
 	@echo "Testing Lexer"
 	@v test ./src/lexer
 
-test-parser: 
+test_parser: 
 	@echo "Testing Parser"
 	@v test ./src/parser
 

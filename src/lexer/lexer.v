@@ -131,8 +131,6 @@ fn (mut l Lexer) all_to_end_of_line() string {
 }
 
 fn (mut l Lexer) double_char_look(c2 rune, t1 token.TokenType, t2 token.TokenType) token.Token {
-	println('Double char look ${l.ch} ${l.peak()}')
-
 	if l.peak() == c2 {
 		lit_val := [l.ch, l.peak()].string()
 		l.read_char()
