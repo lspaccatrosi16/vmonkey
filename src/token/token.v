@@ -21,7 +21,9 @@ pub enum TokenType {
 	illegal
 	eof
 	ident
-	literal
+	integer_literal
+	float_literal
+	
 	assign
 	comment
 	// Operators
@@ -30,6 +32,16 @@ pub enum TokenType {
 	asterisk
 	slash
 	bang
+	plus_equals
+	minus_equals
+	asterisk_equals
+	slash_equals
+
+	//Postfix Operators
+
+	pf_plus
+	pf_minus
+
 	// Comparisons
 	gt
 	gte

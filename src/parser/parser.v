@@ -19,6 +19,23 @@ enum Precedence as u8 {
 	call
 }
 
+const precedence_table = {
+	token.TokenType.eq:              Precedence.equals
+	token.TokenType.neq:             Precedence.equals
+	token.TokenType.lt:              Precedence.less_greater
+	token.TokenType.lte:             Precedence.less_greater
+	token.TokenType.gt:              Precedence.less_greater
+	token.TokenType.gte:             Precedence.less_greater
+	token.TokenType.plus:            Precedence.sum
+	token.TokenType.plus_equals:     Precedence.sum
+	token.TokenType.minus:           Precedence.sum
+	token.TokenType.minus_equals:    Precedence.sum
+	token.TokenType.slash:           Precedence.product
+	token.TokenType.slash_equals:    Precedence.product
+	token.TokenType.asterisk:        Precedence.product
+	token.TokenType.asterisk_equals: Precedence.product
+}
+
 [heap]
 pub struct Parser {
 	tokens      []token.Token [required]
@@ -27,7 +44,7 @@ mut:
 	infix_fns     map[token.TokenType]InfixParser
 	prefix_fns    map[token.TokenType]PrefixParser
 	current_token token.Token
-	peek_token    token.Token
+	peak_token    token.Token
 
 	read_position i32
 	position      i32
@@ -36,8 +53,8 @@ pub mut:
 }
 
 fn (mut p Parser) next_token() {
-	p.current_token = p.peek_token
-	p.peek_token = p.read_token() or { token.eof_token() }
+	p.current_token = p.peak_token
+	p.peak_token = p.read_token() or { token.eof_token() }
 }
 
 fn (mut p Parser) read_token() ?token.Token {
@@ -51,23 +68,37 @@ fn (mut p Parser) read_token() ?token.Token {
 	return tok
 }
 
-
-
 fn (p Parser) cur_token_is(t token.TokenType) bool {
 	return p.current_token.token_type == t
 }
 
-fn (p Parser) peek_token_is(t token.TokenType) bool {
-	return p.peek_token.token_type == t
+fn (p Parser) peak_token_is(t token.TokenType) bool {
+	return p.peak_token.token_type == t
 }
 
 fn (mut p Parser) expect_peak(t token.TokenType) bool {
-	if p.peek_token_is(t) {
+	if p.peak_token_is(t) {
 		p.next_token()
 		return true
 	} else {
 		p.parse_errors << wrong_token_type_error(p.current_token, t, p.source_code)
 		return false
+	}
+}
+
+fn (p Parser) peak_precedence() Precedence {
+	if p.peak_token.token_type in parser.precedence_table {
+		return parser.precedence_table[p.peak_token.token_type]
+	} else {
+		return Precedence.lowest
+	}
+}
+
+fn (p Parser) cur_precedence() Precedence {
+	if p.current_token.token_type in parser.precedence_table {
+		return parser.precedence_table[p.current_token.token_type]
+	} else {
+		return Precedence.lowest
 	}
 }
 
@@ -100,19 +131,88 @@ fn (p Parser) get_infix_parser_fn(t token.TokenType) ?InfixParser {
 //
 
 fn (mut p Parser) parse_expression(precedence Precedence) ?ast.Expression {
-	prefix := p.get_prefix_parser_fn(p.current_token.token_type) or { return none }
+	prefix := p.get_prefix_parser_fn(p.current_token.token_type) or {
+		p.parse_errors << parser_error(p.current_token, 'No parser function for ${p.current_token.token_type.str()}',
+			p.source_code)
 
-	left_exp := prefix()
+		return none
+	}
+
+	mut left_exp := prefix() or { return none }
+
+	for !p.peak_token_is(.semicolon) && u8(precedence) < u8(p.peak_precedence()) {
+		infix := p.get_infix_parser_fn(p.peak_token.token_type) or {
+			p.parse_errors << parser_error(p.current_token, 'No parser function for ${p.peak_token.token_type.str()}',
+				p.source_code)
+
+			return none
+		}
+
+		p.next_token()
+
+		left_exp = infix(left_exp) or { return none }
+	}
 
 	return left_exp
 }
 
 fn (p Parser) parse_identifiter() ?ast.Expression {
-	return ast.Identifier{value: p.current_token.literal, token: p.current_token}
+	return ast.Identifier{
+		value: p.current_token.literal
+		token: p.current_token
+	}
 }
 
 fn (p Parser) parse_integer_literal() ?ast.Expression {
-	return ast.IntegerLiteral{value: p.current_token.literal, token: p.current_token}
+	return ast.IntegerLiteral{
+		value: p.current_token.literal
+		token: p.current_token
+	}
+}
+
+fn (p Parser) parse_float_literal() ?ast.Expression {
+	return ast.FloatLiteral{
+		value: p.current_token.literal
+		token: p.current_token
+	}
+}
+
+fn (mut p Parser) parse_prefix_expression() ?ast.Expression {
+	tkn := p.current_token
+	operator := p.current_token.literal
+
+	p.next_token()
+
+	right := p.parse_expression(.prefix) or { return none }
+
+	expr := ast.Node{
+		operator: operator
+		left: none
+		right: right
+		token: tkn
+	}
+
+	return ast.Expression(expr)
+}
+
+fn (mut p Parser) parse_infix_expression(left ast.Expression) ?ast.Expression {
+	tkn := p.current_token
+	op := p.current_token.literal
+
+	precedence := p.cur_precedence()
+
+	p.next_token()
+
+	right := p.parse_expression(precedence) or { return none }
+
+	expr := ast.Node{
+		operator: op
+		left: left
+		right: right
+		token: tkn
+	}
+
+	return ast.Expression(expr)
 }
 
 //
@@ -162,7 +262,7 @@ fn (mut p Parser) parse_expression_statement() ?ast.Statement {
 
 	expr := p.parse_expression(Precedence.lowest) or { return none }
 
-	if p.peek_token_is(token.TokenType.semicolon) {
+	if p.peak_token_is(token.TokenType.semicolon) {
 		p.next_token()
 	}
 
@@ -199,7 +299,7 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 	mut p := &Parser{
 		tokens: tkns
 		current_token: token.eof_token()
-		peek_token: token.eof_token()
+		peak_token: token.eof_token()
 		source_code: source_code
 	}
 	p.next_token()
@@ -207,8 +307,28 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 
 	// REGISTERED PARSRE FUNCTIONS
 
-	p.register_prefix_fn(token.TokenType.ident, p.parse_identifiter)
-	p.register_prefix_fn(token.TokenType.literal, p.parse_integer_literal)
+	p.register_prefix_fn(.ident, p.parse_identifiter)
+	p.register_prefix_fn(.integer_literal, p.parse_integer_literal)
+	p.register_prefix_fn(.float_literal, p.parse_float_literal)
+	p.register_prefix_fn(.bang, p.parse_prefix_expression)
+	p.register_prefix_fn(.minus, p.parse_prefix_expression)
+	p.register_prefix_fn(.pf_plus, p.parse_prefix_expression)
+	p.register_prefix_fn(.pf_minus, p.parse_prefix_expression)
+
+	p.register_infix_fn(.eq, p.parse_infix_expression)
+	p.register_infix_fn(.neq, p.parse_infix_expression)
+	p.register_infix_fn(.lt, p.parse_infix_expression)
+	p.register_infix_fn(.lte, p.parse_infix_expression)
+	p.register_infix_fn(.gt, p.parse_infix_expression)
+	p.register_infix_fn(.gte, p.parse_infix_expression)
+	p.register_infix_fn(.plus, p.parse_infix_expression)
+	p.register_infix_fn(.plus_equals, p.parse_infix_expression)
+	p.register_infix_fn(.minus, p.parse_infix_expression)
+	p.register_infix_fn(.minus_equals, p.parse_infix_expression)
+	p.register_infix_fn(.slash, p.parse_infix_expression)
+	p.register_infix_fn(.slash_equals, p.parse_infix_expression)
+	p.register_infix_fn(.asterisk, p.parse_infix_expression)
+	p.register_infix_fn(.asterisk_equals, p.parse_infix_expression)
 
 	return p
 }

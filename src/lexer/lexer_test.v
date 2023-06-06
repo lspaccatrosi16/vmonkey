@@ -27,17 +27,21 @@ if (5 < 10 ) {
 10 == 10;
 10 != 9;
 const a = ten;
+i++;
+i--;
+i+=i;
+-2;
 '
 	tests := [
 		TokenSequenceTest{token.TokenType.let, 'let'},
 		TokenSequenceTest{token.TokenType.ident, 'five'},
 		TokenSequenceTest{token.TokenType.assign, '='},
-		TokenSequenceTest{token.TokenType.literal, '5.0'},
+		TokenSequenceTest{token.TokenType.float_literal, '5.0'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 		TokenSequenceTest{token.TokenType.let, 'let'},
 		TokenSequenceTest{token.TokenType.ident, 'ten'},
 		TokenSequenceTest{token.TokenType.assign, '='},
-		TokenSequenceTest{token.TokenType.literal, '0xa'},
+		TokenSequenceTest{token.TokenType.integer_literal, '0xa'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 		TokenSequenceTest{token.TokenType.let, 'let'},
 		TokenSequenceTest{token.TokenType.ident, 'add'},
@@ -53,9 +57,9 @@ const a = ten;
 		TokenSequenceTest{token.TokenType.plus, '+'},
 		TokenSequenceTest{token.TokenType.ident, 'y'},
 		TokenSequenceTest{token.TokenType.plus, '+'},
-		TokenSequenceTest{token.TokenType.literal, '0o777'},
+		TokenSequenceTest{token.TokenType.integer_literal, '0o777'},
 		TokenSequenceTest{token.TokenType.plus, '+'},
-		TokenSequenceTest{token.TokenType.literal, '0b1110'},
+		TokenSequenceTest{token.TokenType.integer_literal, '0b1110'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 		TokenSequenceTest{token.TokenType.r_squirly, '}'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'}, // 30
@@ -74,19 +78,19 @@ const a = ten;
 		TokenSequenceTest{token.TokenType.minus, '-'},
 		TokenSequenceTest{token.TokenType.slash, '/'},
 		TokenSequenceTest{token.TokenType.asterisk, '*'},
-		TokenSequenceTest{token.TokenType.literal, '5'}, // 45
+		TokenSequenceTest{token.TokenType.integer_literal, '5'}, // 45
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
-		TokenSequenceTest{token.TokenType.literal, '5'},
+		TokenSequenceTest{token.TokenType.integer_literal, '5'},
 		TokenSequenceTest{token.TokenType.lt, '<'},
-		TokenSequenceTest{token.TokenType.literal, '10'},
+		TokenSequenceTest{token.TokenType.integer_literal, '10'},
 		TokenSequenceTest{token.TokenType.gte, '>='},
-		TokenSequenceTest{token.TokenType.literal, '5'},
+		TokenSequenceTest{token.TokenType.integer_literal, '5'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 		TokenSequenceTest{token.TokenType.@if, 'if'},
 		TokenSequenceTest{token.TokenType.l_paren, '('},
-		TokenSequenceTest{token.TokenType.literal, '5'},
+		TokenSequenceTest{token.TokenType.integer_literal, '5'},
 		TokenSequenceTest{token.TokenType.lt, '<'},
-		TokenSequenceTest{token.TokenType.literal, '10'},
+		TokenSequenceTest{token.TokenType.integer_literal, '10'},
 		TokenSequenceTest{token.TokenType.r_paren, ')'},
 		TokenSequenceTest{token.TokenType.l_squirly, '{'},
 		TokenSequenceTest{token.TokenType.@return, 'return'}, // 60,
@@ -99,19 +103,33 @@ const a = ten;
 		TokenSequenceTest{token.TokenType.@false, 'false'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 		TokenSequenceTest{token.TokenType.r_squirly, '}'},
-		TokenSequenceTest{token.TokenType.literal, '10'},
+		TokenSequenceTest{token.TokenType.integer_literal, '10'},
 		TokenSequenceTest{token.TokenType.eq, '=='},
-		TokenSequenceTest{token.TokenType.literal, '10'},
+		TokenSequenceTest{token.TokenType.integer_literal, '10'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
-		TokenSequenceTest{token.TokenType.literal, '10'},
+		TokenSequenceTest{token.TokenType.integer_literal, '10'},
 		TokenSequenceTest{token.TokenType.neq, '!='}, // 75
-		TokenSequenceTest{token.TokenType.literal, '9'},
+		TokenSequenceTest{token.TokenType.integer_literal, '9'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
 		TokenSequenceTest{token.TokenType.@const, 'const'},
 		TokenSequenceTest{token.TokenType.ident, 'a'},
 		TokenSequenceTest{token.TokenType.assign, '='},
 		TokenSequenceTest{token.TokenType.ident, 'ten'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
+		TokenSequenceTest{token.TokenType.ident, 'i'},
+		TokenSequenceTest{token.TokenType.pf_plus, '++'},
+		TokenSequenceTest{token.TokenType.semicolon, ';'},
+		TokenSequenceTest{token.TokenType.ident, 'i'},
+		TokenSequenceTest{token.TokenType.pf_minus, '--'},
+		TokenSequenceTest{token.TokenType.semicolon, ';'},
+		TokenSequenceTest{token.TokenType.ident, 'i'},
+		TokenSequenceTest{token.TokenType.plus_equals, '+='},
+		TokenSequenceTest{token.TokenType.ident, 'i'},
+		TokenSequenceTest{token.TokenType.semicolon, ';'},
+		TokenSequenceTest{token.TokenType.minus, '-'},
+		TokenSequenceTest{token.TokenType.integer_literal, '2'},
+		TokenSequenceTest{token.TokenType.semicolon, ';'},
+
 	]
 
 	mut l := new_lexer(input)

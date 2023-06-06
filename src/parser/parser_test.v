@@ -12,14 +12,36 @@ struct RetTest {
 	val string
 }
 
+struct PrefixTest {
+	input string
+	op    string
+	val   string
+}
+
+struct InfixTest {
+	input string
+	op    string
+	left  string
+	right string
+}
+
 fn common(input string, stmt_len i32) []ast.Statement {
 	mut l := lexer.new_lexer(input)
 	tkns := l.run_lexer()
+
+	for err in l.lex_errors {
+		println(err.str())
+	}
 
 	assert l.lex_errors.len == 0
 	mut p := new_parser(tkns, input)
 
 	program := p.parse_program()
+
+	for err in p.parse_errors {
+		println(err.str())
+	}
+
 	assert p.parse_errors.len == 0
 
 	statements := program.get_statements()
@@ -127,16 +149,131 @@ fn test_integer() {
 		stmt := statements[i]
 		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
 		expr := (stmt as ast.ExpressionStatement).value
-		assert literal_test(expr, tt)
+		assert integer_literal_test(expr, tt)
 	}
 }
 
-fn literal_test(expr ast.Expression, val string) bool{
+fn integer_literal_test(expr ast.Expression, val string) bool {
 	if expr is ast.IntegerLiteral {
 		assert expr.value == val
 		return true
 	} else {
 		assert false, 'Not integer expression ${expr.type_name()}'
+		return false
+	}
+}
+
+fn test_float() {
+	input := '5.0;
+	0.000000005;
+	10000000.2;
+'
+	exp_lit := ['5.0', '0.000000005', '10000000.2']
+
+	statements := common(input, 3)
+
+	for i, tt in exp_lit {
+		stmt := statements[i]
+		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
+		expr := (stmt as ast.ExpressionStatement).value
+		assert float_literal_test(expr, tt)
+	}
+}
+
+fn float_literal_test(expr ast.Expression, val string) bool {
+	if expr is ast.FloatLiteral {
+		assert expr.value == val
+		return true
+	} else {
+		assert false, 'Not integer expression ${expr.type_name()}'
+		return false
+	}
+}
+
+fn test_prefix() {
+	tests := [
+		PrefixTest{'!5;', '!', '5'},
+		PrefixTest{'-15;', '-', '15'},
+		PrefixTest{'++3;', '++', '3'},
+		PrefixTest{'--0xff;', '--', '0xff'},
+	]
+
+	for tt in tests {
+		statements := common(tt.input, 1)
+		stmt := statements[0]
+		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
+		expr := (stmt as ast.ExpressionStatement).value
+		assert prefix_operator_test(expr, tt.val, tt.op)
+	}
+}
+
+fn prefix_operator_test(expr ast.Expression, val string, op string) bool {
+	if expr is ast.Node {
+		assert expr.operator == op, 'Not expected operator ${expr.operator}, wanted ${op}'
+		if l := expr.left {
+			assert false, 'Left side of prefix should be none, not ${l.type_name()}'
+		}
+
+		if r := expr.right {
+			int_test := integer_literal_test(r, val)
+
+			assert int_test
+			return true
+		} else {
+			assert false
+			assert false, 'Right side of prefix should not be none'
+			return false
+		}
+	} else {
+		assert false, 'Not Binary Node ${expr.type_name()}'
+		return false
+	}
+}
+
+fn test_infix() {
+	tests := [
+		InfixTest{'5+5;', '+', '5', '5'},
+		InfixTest{'5-5;', '-', '5', '5'},
+		InfixTest{'5*5;', '*', '5', '5'},
+		InfixTest{'5/5;', '/', '5', '5'},
+		InfixTest{'5>5;', '>', '5', '5'},
+		InfixTest{'5<5;', '<', '5', '5'},
+		InfixTest{'5==5;', '==', '5', '5'},
+		InfixTest{'5!=5;', '!=', '5', '5'},
+		InfixTest{'5>=5;', '>=', '5', '5'},
+		InfixTest{'5<=5;', '<=', '5', '5'},
+		InfixTest{'5+=5;', '+=', '5', '5'},
+		InfixTest{'5-=5;', '-=', '5', '5'},
+		InfixTest{'5*=5;', '*=', '5', '5'},
+		InfixTest{'5/=5;', '/=', '5', '5'},
+	]
+
+	for tt in tests {
+		statements := common(tt.input, 1)
+		stmt := statements[0]
+		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
+		expr := (stmt as ast.ExpressionStatement).value
+		assert infix_operator_test(expr, tt.op, tt.left, tt.right)
+	}
+}
+
+fn infix_operator_test(expr ast.Expression, op string, left string, right string) bool {
+	if expr is ast.Node {
+		assert expr.operator == op, 'Not expected operator ${expr.operator}, wanted ${op}'
+		l := expr.left or {
+			assert false, 'Left side should not be none'
+			return false
+		}
+		r := expr.right or {
+			assert false, 'Right side should not be none'
+			return false
+		}
+		assert integer_literal_test(l, left)
+		assert integer_literal_test(r, right)
+
+		return true
+	} else {
+		assert false, 'Not Binary Node ${expr.type_name()}'
 		return false
 	}
 }
