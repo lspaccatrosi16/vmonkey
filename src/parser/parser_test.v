@@ -112,3 +112,31 @@ fn test_ident() {
 		assert false, 'Not ident expression ${expr.type_name()}'
 	}
 }
+
+fn test_integer() {
+	input := '5;
+	0x3f;
+	0o44;
+	0b1100;'
+
+	exp_lit := ['5', '0x3f', '0o44', '0b1100']
+
+	statements := common(input, 4)
+
+	for i, tt in exp_lit {
+		stmt := statements[i]
+		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
+		expr := (stmt as ast.ExpressionStatement).value
+		assert literal_test(expr, tt)
+	}
+}
+
+fn literal_test(expr ast.Expression, val string) bool{
+	if expr is ast.IntegerLiteral {
+		assert expr.value == val
+		return true
+	} else {
+		assert false, 'Not integer expression ${expr.type_name()}'
+		return false
+	}
+}

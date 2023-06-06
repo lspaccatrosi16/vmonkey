@@ -4,8 +4,9 @@ import ast
 import token
 import error
 
-type PrefixParser = fn () ast.Expression
-type InfixParser = fn (ast.Expression) ast.Expression
+type PrefixParser = fn () ?ast.Expression
+
+type InfixParser = fn (ast.Expression) ?ast.Expression
 
 enum Precedence as u8 {
 	_
@@ -18,11 +19,12 @@ enum Precedence as u8 {
 	call
 }
 
+[heap]
 pub struct Parser {
 	tokens      []token.Token [required]
 	source_code string        [required]
 mut:
-	infix_fns     map[token.TokenType]PrefixParser
+	infix_fns     map[token.TokenType]InfixParser
 	prefix_fns    map[token.TokenType]PrefixParser
 	current_token token.Token
 	peek_token    token.Token
@@ -49,13 +51,7 @@ fn (mut p Parser) read_token() ?token.Token {
 	return tok
 }
 
-fn (mut p Parser) register_prefix_fn(tt token.TokenType, f PrefixParser) {
-	p.prefix_fns[tt] = f
-}
 
-fn (mut p Parser) register_infix_fn(tt token.TokenType, f PrefixParser) {
-	p.infix_fns[tt] = f
-}
 
 fn (p Parser) cur_token_is(t token.TokenType) bool {
 	return p.current_token.token_type == t
@@ -75,13 +71,48 @@ fn (mut p Parser) expect_peak(t token.TokenType) bool {
 	}
 }
 
+fn (mut p Parser) register_prefix_fn(tt token.TokenType, f PrefixParser) {
+	p.prefix_fns[tt] = f
+}
+
+fn (mut p Parser) register_infix_fn(tt token.TokenType, f InfixParser) {
+	p.infix_fns[tt] = f
+}
+
+fn (p Parser) get_prefix_parser_fn(t token.TokenType) ?PrefixParser {
+	if t in p.prefix_fns {
+		return p.prefix_fns[t]
+	} else {
+		return none
+	}
+}
+
+fn (p Parser) get_infix_parser_fn(t token.TokenType) ?InfixParser {
+	if t in p.infix_fns {
+		return p.infix_fns[t]
+	} else {
+		return none
+	}
+}
+
 //
 //  EXPRESSIONS
 //
 
+fn (mut p Parser) parse_expression(precedence Precedence) ?ast.Expression {
+	prefix := p.get_prefix_parser_fn(p.current_token.token_type) or { return none }
 
-fn (mut p Parser) parse_expression(p Precedence) {
+	left_exp := prefix()
 
+	return left_exp
+}
+
+fn (p Parser) parse_identifiter() ?ast.Expression {
+	return ast.Identifier{value: p.current_token.literal, token: p.current_token}
+}
+
+fn (p Parser) parse_integer_literal() ?ast.Expression {
+	return ast.IntegerLiteral{value: p.current_token.literal, token: p.current_token}
 }
 
 //
@@ -129,15 +160,13 @@ fn (mut p Parser) parse_return_statement() ?ast.Statement {
 fn (mut p Parser) parse_expression_statement() ?ast.Statement {
 	tkn := p.current_token
 
-	expr := p.parse_expression(Precedence.lowest) or {
-		return none
-	}
+	expr := p.parse_expression(Precedence.lowest) or { return none }
 
 	if p.peek_token_is(token.TokenType.semicolon) {
 		p.next_token()
 	}
 
-	stmt := ast.ExpressionStatement {
+	stmt := ast.ExpressionStatement{
 		token: tkn
 		value: expr
 	}
@@ -149,7 +178,7 @@ fn (mut p Parser) parse_statement() ?ast.Statement {
 	return match p.current_token.token_type {
 		.let, .@const { p.parse_var_statement() }
 		.@return { p.parse_return_statement() }
-		else { parse_expression_statement() }
+		else { p.parse_expression_statement() }
 	}
 }
 
@@ -175,6 +204,11 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 	}
 	p.next_token()
 	p.next_token()
+
+	// REGISTERED PARSRE FUNCTIONS
+
+	p.register_prefix_fn(token.TokenType.ident, p.parse_identifiter)
+	p.register_prefix_fn(token.TokenType.literal, p.parse_integer_literal)
 
 	return p
 }
