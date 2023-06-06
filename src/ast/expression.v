@@ -16,7 +16,7 @@ pub fn (n Node) literal() string {
 	return ' ( ${n.left.literal()} ${n.literal} ${n.right.literal()} ) '
 }
 
-type Expression = EmptyNode | Node
+type Expression = EmptyNode | Node | Identifier
 
 pub fn (e Expression) literal() string {
 	if e is EmptyNode {

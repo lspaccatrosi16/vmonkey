@@ -95,3 +95,20 @@ fn ret_statement_test(s ast.Statement, val string) bool {
 		return false
 	}
 }
+
+fn test_ident() {
+	input := 'foobar;'
+
+	statements := common(input, 1)
+	stmt := statements[0]
+
+	assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
+
+	expr := (stmt as ast.ExpressionStatement).value
+
+	if expr is ast.Identifier {
+		assert expr.value == 'foobar'
+	} else {
+		assert false, 'Not ident expression ${expr.type_name()}'
+	}
+}

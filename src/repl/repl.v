@@ -17,7 +17,7 @@ pub fn start() {
 	clear_screen()
 	width, _ := term.get_terminal_size()
 	divider := '='.repeat(width)
-	
+
 	top: for {
 		println(divider)
 		mut ipt_lines := []string{}
@@ -71,11 +71,9 @@ pub fn start() {
 
 		statements := (*program).get_statements()
 
-		for stmt in statements {
-			println(stmt.literal())
-		}
-
-		if statements.len == 0 {
+		if statements.len > 0 {
+			println(program.prog_string())
+		} else {
 			for tok in tokens {
 				print('${tok.token_type.str().to_upper()} : ${tok.literal}\n')
 			}

@@ -6,9 +6,10 @@ pub enum StatementType {
 	var
 	empty
 	@return
+	expr_stat
 }
 
-pub type Statement = EmptyStatement | VarStatement | ReturnStatement
+pub type Statement = EmptyStatement | ExpressionStatement | ReturnStatement | VarStatement
 
 pub fn (s Statement) literal() string {
 	if s is EmptyStatement {
@@ -17,9 +18,11 @@ pub fn (s Statement) literal() string {
 		return s.stat_string()
 	} else if s is ReturnStatement {
 		return s.stat_string()
+	} else if s is ExpressionStatement {
+		return s.stat_string()
 	}
 
-	return '<ERROR UNKOWN STATEMENT>'
+	return '<UNKOWN STATEMENT>'
 }
 
 pub fn make_empty_statement() EmptyStatement {
@@ -39,16 +42,17 @@ pub:
 }
 
 pub fn (l VarStatement) stat_string() string {
-	mut type_text := "LET"
+	mut type_text := 'LET'
 
 	if l.token.token_type == token.TokenType.@const {
-		type_text = "CONST"
+		type_text = 'CONST'
 	}
-	
+
 	return '${type_text} ${l.name.literal()} = ${l.value.literal()}'
 }
 
 pub struct ReturnStatement {
+pub:
 	token          token.Token   [required]
 	statement_type StatementType = .@return
 	value          Expression    [required]
@@ -56,4 +60,15 @@ pub struct ReturnStatement {
 
 pub fn (r ReturnStatement) stat_string() string {
 	return 'RET ${r.value.literal()}'
+}
+
+pub struct ExpressionStatement {
+pub:
+	token          token.Token   [required]
+	statement_type StatementType = .expr_stat
+	value          Expression    [required]
+}
+
+pub fn (e ExpressionStatement) stat_string() string {
+	return e.value.literal()
 }
