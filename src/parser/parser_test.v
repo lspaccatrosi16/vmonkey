@@ -128,11 +128,7 @@ fn test_ident() {
 
 	expr := (stmt as ast.ExpressionStatement).value
 
-	if expr is ast.Identifier {
-		assert expr.value == 'foobar'
-	} else {
-		assert false, 'Not ident expression ${expr.type_name()}'
-	}
+	assert literal_test(expr, "foobar", "Identifier")
 }
 
 fn test_integer() {
@@ -149,25 +145,14 @@ fn test_integer() {
 		stmt := statements[i]
 		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
 		expr := (stmt as ast.ExpressionStatement).value
-		assert integer_literal_test(expr, tt)
-	}
-}
-
-fn integer_literal_test(expr ast.Expression, val string) bool {
-	if expr is ast.IntegerLiteral {
-		assert expr.value == val
-		return true
-	} else {
-		assert false, 'Not integer expression ${expr.type_name()}'
-		return false
+		assert literal_test(expr, tt, "IntegerLiteral")
 	}
 }
 
 fn test_float() {
 	input := '5.0;
 	0.000000005;
-	10000000.2;
-'
+	10000000.2;'
 	exp_lit := ['5.0', '0.000000005', '10000000.2']
 
 	statements := common(input, 3)
@@ -176,17 +161,23 @@ fn test_float() {
 		stmt := statements[i]
 		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
 		expr := (stmt as ast.ExpressionStatement).value
-		assert float_literal_test(expr, tt)
+		assert literal_test(expr, tt, "FloatLiteral")
 	}
 }
 
-fn float_literal_test(expr ast.Expression, val string) bool {
-	if expr is ast.FloatLiteral {
-		assert expr.value == val
-		return true
-	} else {
-		assert false, 'Not integer expression ${expr.type_name()}'
-		return false
+fn test_bool() {
+	input := 'true;
+	false;'
+
+	exp_lit:= ["true", "false"]
+
+	statements := common(input, 2)
+
+	for i,tt in exp_lit {
+		stmt := statements[i]
+		assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
+		expr := (stmt as ast.ExpressionStatement).value
+		assert literal_test(expr, tt, "BooleanLiteral")
 	}
 }
 
@@ -194,7 +185,7 @@ fn test_prefix() {
 	tests := [
 		PrefixTest{'!5;', '!', '5'},
 		PrefixTest{'-15;', '-', '15'},
-		PrefixTest{'++3;', '++', '3'},
+		PrefixTest{'++a;', '++', 'a'},
 		PrefixTest{'--0xff;', '--', '0xff'},
 	]
 
@@ -215,7 +206,7 @@ fn prefix_operator_test(expr ast.Expression, val string, op string) bool {
 		}
 
 		if r := expr.right {
-			int_test := integer_literal_test(r, val)
+			int_test := literal_test(r, val, "*")
 
 			assert int_test
 			return true
@@ -246,6 +237,9 @@ fn test_infix() {
 		InfixTest{'5-=5;', '-=', '5', '5'},
 		InfixTest{'5*=5;', '*=', '5', '5'},
 		InfixTest{'5/=5;', '/=', '5', '5'},
+		InfixTest{'true==true;', '==', 'true', 'true'},
+		InfixTest{'true!=false;', '!=' 'true', 'false'},
+		InfixTest{'false==false;', '==', 'false', 'false'},
 	]
 
 	for tt in tests {
@@ -264,12 +258,14 @@ fn infix_operator_test(expr ast.Expression, op string, left string, right string
 			assert false, 'Left side should not be none'
 			return false
 		}
+
 		r := expr.right or {
 			assert false, 'Right side should not be none'
 			return false
 		}
-		assert integer_literal_test(l, left)
-		assert integer_literal_test(r, right)
+
+		assert literal_test(l, left, "*")
+		assert literal_test(r, right, "*")
 
 		return true
 	} else {

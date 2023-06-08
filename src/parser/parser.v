@@ -132,22 +132,19 @@ fn (p Parser) get_infix_parser_fn(t token.TokenType) ?InfixParser {
 
 fn (mut p Parser) parse_expression(precedence Precedence) ?ast.Expression {
 	prefix := p.get_prefix_parser_fn(p.current_token.token_type) or {
-		p.parse_errors << parser_error(p.current_token, 'No parser function for ${p.current_token.token_type.str()}',
+		p.parse_errors << parser_error(p.current_token, 'No prefix parser function for ${p.current_token.token_type.str()}',
 			p.source_code)
 
 		return none
 	}
 
 	mut left_exp := prefix() or { return none }
-
 	for !p.peak_token_is(.semicolon) && u8(precedence) < u8(p.peak_precedence()) {
 		infix := p.get_infix_parser_fn(p.peak_token.token_type) or {
-			p.parse_errors << parser_error(p.current_token, 'No parser function for ${p.peak_token.token_type.str()}',
+			p.parse_errors << parser_error(p.current_token, 'No infix parser function for ${p.peak_token.token_type.str()}',
 				p.source_code)
-
 			return none
 		}
-
 		p.next_token()
 
 		left_exp = infix(left_exp) or { return none }
@@ -172,6 +169,13 @@ fn (p Parser) parse_integer_literal() ?ast.Expression {
 
 fn (p Parser) parse_float_literal() ?ast.Expression {
 	return ast.FloatLiteral{
+		value: p.current_token.literal
+		token: p.current_token
+	}
+}
+
+fn (p Parser) parse_boolean_literal() ?ast.Expression {
+	return ast.BooleanLiteral{
 		value: p.current_token.literal
 		token: p.current_token
 	}
@@ -213,6 +217,20 @@ fn (mut p Parser) parse_infix_expression(left ast.Expression) ?ast.Expression {
 	}
 
 	return ast.Expression(expr)
+}
+
+fn (mut p Parser) parse_grouped_expression() ?ast.Expression {
+	p.next_token()
+
+	expr := p.parse_expression(.lowest)
+
+	if !p.expect_peak(.r_paren) {
+		err := wrong_token_type_error(p.current_token, .r_paren, p.source_code)
+		p.parse_errors << err
+		return none
+	}
+
+	return expr
 }
 
 //
@@ -307,13 +325,22 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 
 	// REGISTERED PARSRE FUNCTIONS
 
+	// LITERALS
 	p.register_prefix_fn(.ident, p.parse_identifiter)
 	p.register_prefix_fn(.integer_literal, p.parse_integer_literal)
 	p.register_prefix_fn(.float_literal, p.parse_float_literal)
+	p.register_prefix_fn(.@true, p.parse_boolean_literal)
+	p.register_prefix_fn(.@false, p.parse_boolean_literal)
+
+	// PREFIX EXPRESSIONS
+
 	p.register_prefix_fn(.bang, p.parse_prefix_expression)
 	p.register_prefix_fn(.minus, p.parse_prefix_expression)
 	p.register_prefix_fn(.pf_plus, p.parse_prefix_expression)
 	p.register_prefix_fn(.pf_minus, p.parse_prefix_expression)
+	p.register_prefix_fn(.l_paren, p.parse_grouped_expression)
+
+	// INFIX EXPRESSIONS
 
 	p.register_infix_fn(.eq, p.parse_infix_expression)
 	p.register_infix_fn(.neq, p.parse_infix_expression)

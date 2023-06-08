@@ -6,9 +6,9 @@ pub struct EmptyNode {}
 
 pub struct Node {
 pub:
-	token   token.Token
-	left    ?Expression
-	right   ?Expression
+	token    token.Token
+	left     ?Expression
+	right    ?Expression
 	operator string
 }
 
@@ -17,17 +17,17 @@ pub fn (n Node) literal() string {
 	mut right := ' '
 
 	if l := n.left {
-		left = " ${l.literal()} "
+		left = ' ${l.literal()} '
 	}
 
 	if r := n.right {
-		right = " ${r.literal()} "
+		right = ' ${r.literal()} '
 	}
 
 	return ' (${left}${n.operator}${right}) '
 }
 
-type Expression = EmptyNode | FloatLiteral | Identifier | IntegerLiteral | Node
+type Expression = BooleanLiteral | EmptyNode | FloatLiteral | Identifier | IntegerLiteral | Node
 
 pub fn (e Expression) literal() string {
 	if e is EmptyNode {
@@ -39,6 +39,8 @@ pub fn (e Expression) literal() string {
 	} else if e is IntegerLiteral {
 		return e.literal()
 	} else if e is FloatLiteral {
+		return e.literal()
+	} else if e is BooleanLiteral {
 		return e.literal()
 	}
 
@@ -73,6 +75,16 @@ pub:
 
 pub fn (f FloatLiteral) literal() string {
 	return f.value
+}
+
+pub struct BooleanLiteral {
+pub:
+	value string
+	token token.Token
+}
+
+pub fn (b BooleanLiteral) literal() string {
+	return b.value
 }
 
 pub fn make_empty_expr() Expression {
