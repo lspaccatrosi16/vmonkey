@@ -225,17 +225,80 @@ fn (mut p Parser) parse_grouped_expression() ?ast.Expression {
 	expr := p.parse_expression(.lowest)
 
 	if !p.expect_peak(.r_paren) {
-		err := wrong_token_type_error(p.current_token, .r_paren, p.source_code)
-		p.parse_errors << err
 		return none
 	}
 
 	return expr
 }
 
+fn (mut p Parser) parse_if_expression() ?ast.Expression {
+	tkn := p.current_token
+
+	if !p.expect_peak(.l_paren) {
+		return none
+	}
+
+	p.next_token()
+
+	cond := p.parse_expression(.lowest) or { return none }
+
+	if !p.expect_peak(.r_paren) {
+		return none
+	}
+	if !p.expect_peak(.l_squirly) {
+		return none
+	}
+
+	cons := p.parse_block_statement()
+
+	expr := ast.IfExpression{
+		token: tkn
+		condition: cond
+		consequence: cons
+		alternative: p.get_else_statement()
+	}
+
+	return ast.Expression(expr)
+}
+
+fn (mut p Parser) get_else_statement() ?ast.BlockStatement {
+	if p.peak_token_is(.@else) {
+		p.next_token()
+
+		if !p.expect_peak(.l_squirly) {
+			return none
+		}
+
+		return p.parse_block_statement()
+	} else {
+		return none
+	}
+}
+
 //
 //	STATEMENTS
 //
+
+fn (mut p Parser) parse_block_statement() ast.BlockStatement {
+	tkn := p.current_token
+	mut statements := []ast.Statement{}
+	p.next_token()
+
+	for !p.cur_token_is(.r_squirly) && !p.cur_token_is(.eof) {
+		if stmt := p.parse_statement() {
+			statements << stmt
+		}
+
+		p.next_token()
+	}
+
+	block := ast.BlockStatement{
+		token: tkn
+		statements: statements
+	}
+
+	return block
+}
 
 fn (mut p Parser) parse_var_statement() ?ast.Statement {
 	tok := p.current_token
@@ -339,6 +402,7 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 	p.register_prefix_fn(.pf_plus, p.parse_prefix_expression)
 	p.register_prefix_fn(.pf_minus, p.parse_prefix_expression)
 	p.register_prefix_fn(.l_paren, p.parse_grouped_expression)
+	p.register_prefix_fn(.@if, p.parse_if_expression)
 
 	// INFIX EXPRESSIONS
 

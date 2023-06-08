@@ -27,7 +27,7 @@ pub fn (n Node) literal() string {
 	return ' (${left}${n.operator}${right}) '
 }
 
-type Expression = BooleanLiteral | EmptyNode | FloatLiteral | Identifier | IntegerLiteral | Node
+type Expression = BooleanLiteral | EmptyNode | FloatLiteral | Identifier | IntegerLiteral | Node | IfExpression
 
 pub fn (e Expression) literal() string {
 	if e is EmptyNode {
@@ -41,6 +41,8 @@ pub fn (e Expression) literal() string {
 	} else if e is FloatLiteral {
 		return e.literal()
 	} else if e is BooleanLiteral {
+		return e.literal()
+	} else if e is IfExpression {
 		return e.literal()
 	}
 
@@ -85,6 +87,29 @@ pub:
 
 pub fn (b BooleanLiteral) literal() string {
 	return b.value
+}
+
+pub struct IfExpression {
+pub:
+	token       token.Token
+	condition   Expression
+	consequence BlockStatement
+	alternative ?BlockStatement
+}
+
+pub fn (i IfExpression) literal() string {
+	mut str := 'IF '
+	str += i.condition.literal()
+	str += ' THEN '
+	str += i.consequence.block_string()
+	if c := i.alternative {
+		str += '\nELSE '
+		str += c.block_string()
+	}
+
+	str += '\nEND IF'
+
+	return str
 }
 
 pub fn make_empty_expr() Expression {
