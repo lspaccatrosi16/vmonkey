@@ -29,6 +29,7 @@ pub fn (n Node) literal() string {
 
 type Expression = BlockLiteral
 	| BooleanLiteral
+	| CallLiteral
 	| EmptyNode
 	| FloatLiteral
 	| FunctionLiteral
@@ -55,6 +56,8 @@ pub fn (e Expression) literal() string {
 	} else if e is FunctionLiteral {
 		return e.literal()
 	} else if e is BlockLiteral {
+		return e.literal()
+	} else if e is CallLiteral {
 		return e.literal()
 	}
 
@@ -154,6 +157,25 @@ pub:
 
 pub fn (b BlockLiteral) literal() string {
 	return b.body.block_string()
+}
+
+pub struct CallLiteral {
+pub:
+	token     token.Token
+	function  Expression
+	arguments []Expression
+}
+
+pub fn (cl CallLiteral) literal() string {
+	mut str := '${cl.function.literal()}('
+
+	for a in cl.arguments {
+		str += '${a.literal()}, '
+	}
+
+	str += ')'
+
+	return str
 }
 
 pub fn make_empty_expr() Expression {

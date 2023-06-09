@@ -34,6 +34,7 @@ const precedence_table = {
 	token.TokenType.slash_equals:    Precedence.product
 	token.TokenType.asterisk:        Precedence.product
 	token.TokenType.asterisk_equals: Precedence.product
+	token.TokenType.l_paren:         Precedence.call
 }
 
 [heap]
@@ -344,6 +345,48 @@ fn (mut p Parser) parse_function_parameters() ?[]ast.Identifier {
 	return identifiers
 }
 
+fn (mut p Parser) parse_call_expression(function ast.Expression) ?ast.Expression {
+	tkn := p.current_token
+	args := p.parse_call_arguments() or { return none }
+
+	expr := ast.CallLiteral{
+		token: tkn
+		arguments: args
+		function: function
+	}
+
+	return ast.Expression(expr)
+}
+
+fn (mut p Parser) parse_call_arguments() ?[]ast.Expression {
+	mut args := []ast.Expression{}
+
+	if p.peak_token_is(.r_paren) {
+		p.next_token()
+		return args
+	}
+
+	p.next_token()
+
+	mut arg := p.parse_expression(.lowest) or { return none }
+
+	args << arg
+
+	for p.peak_token_is(.comma) {
+		p.next_token()
+		p.next_token()
+		arg = p.parse_expression(.lowest) or { return none }
+
+		args << arg
+	}
+
+	if !p.expect_peak(.r_paren) {
+		return none
+	}
+
+	return args
+}
+
 //
 //	STATEMENTS
 //
@@ -372,23 +415,29 @@ fn (mut p Parser) parse_block_statement() ast.BlockStatement {
 fn (mut p Parser) parse_var_statement() ?ast.Statement {
 	tok := p.current_token
 
-	if !p.expect_peak(token.TokenType.ident) {
+	if !p.expect_peak(.ident) {
 		return none
 	}
 	name := ast.Identifier{
 		value: p.current_token.literal
 		token: p.current_token
 	}
-	if !p.expect_peak(token.TokenType.assign) {
+	if !p.expect_peak(.assign) {
 		return none
 	}
-	for !p.cur_token_is(token.TokenType.semicolon) {
+
+	p.next_token()
+
+	val := p.parse_expression(.lowest) or {return none}
+
+	if p.peak_token_is(.semicolon) {
 		p.next_token()
 	}
+
 	stmt := ast.VarStatement{
 		token: tok
 		name: name
-		value: ast.make_empty_expr()
+		value: val
 	}
 	return ast.Statement(stmt)
 }
@@ -397,12 +446,16 @@ fn (mut p Parser) parse_return_statement() ?ast.Statement {
 	tok := p.current_token
 
 	p.next_token()
-	for !p.cur_token_is(token.TokenType.semicolon) {
+
+	ret := p.parse_expression(.lowest) or {return none}
+
+	if p.peak_token_is(.semicolon) {
 		p.next_token()
 	}
+
 	stmt := ast.ReturnStatement{
 		token: tok
-		value: ast.make_empty_expr()
+		value: ret
 	}
 	return ast.Statement(stmt)
 }
@@ -412,7 +465,7 @@ fn (mut p Parser) parse_expression_statement() ?ast.Statement {
 
 	expr := p.parse_expression(Precedence.lowest) or { return none }
 
-	if p.peak_token_is(token.TokenType.semicolon) {
+	if p.peak_token_is(.semicolon) {
 		p.next_token()
 	}
 
@@ -435,7 +488,7 @@ fn (mut p Parser) parse_statement() ?ast.Statement {
 pub fn (mut p Parser) parse_program() &ast.Program {
 	mut program := &ast.Program{}
 
-	for !p.cur_token_is(token.TokenType.eof) {
+	for !p.cur_token_is(.eof) {
 		if stmt := p.parse_statement() {
 			program.add_statement(stmt)
 		}
@@ -491,6 +544,7 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 	p.register_infix_fn(.slash_equals, p.parse_infix_expression)
 	p.register_infix_fn(.asterisk, p.parse_infix_expression)
 	p.register_infix_fn(.asterisk_equals, p.parse_infix_expression)
+	p.register_infix_fn(.l_paren, p.parse_call_expression)
 
 	return p
 }

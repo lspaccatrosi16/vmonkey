@@ -22,7 +22,7 @@ fn test_ident() {
 	stmt := statements[0]
 	expr := expr_stat_test(stmt)
 
-	assert literal_test(expr, 'foobar', 'Identifier')
+	assert test_expression(expr, LiteralSpec{'foobar', 'Identifier'})
 }
 
 fn test_integer() {
@@ -38,7 +38,7 @@ fn test_integer() {
 	for i, tt in exp_lit {
 		stmt := statements[i]
 		expr := expr_stat_test(stmt)
-		assert literal_test(expr, tt, 'IntegerLiteral')
+		assert test_expression(expr, LiteralSpec{tt, 'IntegerLiteral'})
 	}
 }
 
@@ -53,7 +53,7 @@ fn test_float() {
 	for i, tt in exp_lit {
 		stmt := statements[i]
 		expr := expr_stat_test(stmt)
-		assert literal_test(expr, tt, 'FloatLiteral')
+		assert test_expression(expr, LiteralSpec{tt, 'FloatLiteral'})
 	}
 }
 
@@ -68,7 +68,7 @@ fn test_bool() {
 	for i, tt in exp_lit {
 		stmt := statements[i]
 		expr := expr_stat_test(stmt)
-		assert literal_test(expr, tt, 'BooleanLiteral')
+		assert test_expression(expr, LiteralSpec{tt, 'BooleanLiteral'})
 	}
 }
 
@@ -84,30 +84,7 @@ fn test_prefix() {
 		statements := common(tt.input, 1)
 		stmt := statements[0]
 		expr := expr_stat_test(stmt)
-		assert prefix_operator_test(expr, tt.val, tt.op)
-	}
-}
-
-fn prefix_operator_test(expr ast.Expression, val string, op string) bool {
-	if expr is ast.Node {
-		assert expr.operator == op, 'Not expected operator ${expr.operator}, wanted ${op}'
-		if l := expr.left {
-			assert false, 'Left side of prefix should be none, not ${l.type_name()}'
-		}
-
-		if r := expr.right {
-			int_test := literal_test(r, val, '*')
-
-			assert int_test
-			return true
-		} else {
-			assert false
-			assert false, 'Right side of prefix should not be none'
-			return false
-		}
-	} else {
-		assert false, 'Not Binary Node ${expr.type_name()}'
-		return false
+		assert test_expression(expr, PrefixSpec{tt.op, LiteralSpec{tt.val, '*'}})
 	}
 }
 
@@ -136,30 +113,7 @@ fn test_infix() {
 		statements := common(tt.input, 1)
 		stmt := statements[0]
 		expr := expr_stat_test(stmt)
-		assert infix_operator_test(expr, tt.op, tt.left, tt.right)
-	}
-}
-
-fn infix_operator_test(expr ast.Expression, op string, left string, right string) bool {
-	if expr is ast.Node {
-		assert expr.operator == op, 'Not expected operator ${expr.operator}, wanted ${op}'
-		l := expr.left or {
-			assert false, 'Left side should not be none'
-			return false
-		}
-
-		r := expr.right or {
-			assert false, 'Right side should not be none'
-			return false
-		}
-
-		assert literal_test(l, left, '*')
-		assert literal_test(r, right, '*')
-
-		return true
-	} else {
-		assert false, 'Not Binary Node ${expr.type_name()}'
-		return false
+		assert test_expression(expr, InfixSpec{LiteralSpec{tt.left, '*'}, tt.op, LiteralSpec{tt.right, '*'}})
 	}
 }
 
@@ -176,15 +130,15 @@ fn if_test(expr ast.Expression) bool {
 	if expr is ast.IfExpression {
 		cond := expr.condition
 		cons := expr.consequence
-		assert infix_operator_test(cond, '<', 'x', 'y')
+		assert test_expression(cond, InfixSpec{LiteralSpec{'x', 'Identifier'}, '<', LiteralSpec{'y', 'Identifier'}})
 		assert cons.statements.len == 1
 		expr_con := expr_stat_test(cons.statements[0])
-		assert literal_test(expr_con, 'x', 'Identifier')
+		assert test_expression(expr_con, LiteralSpec{'x', 'Identifier'})
 
 		if alt := expr.alternative {
 			assert alt.statements.len == 1
 			expr_alt := expr_stat_test(alt.statements[0])
-			assert literal_test(expr_alt, 'y', 'Identifier')
+			assert test_expression(expr_alt, LiteralSpec{'y', 'Identifier'})
 			return true
 		} else {
 			assert false, 'Expecting an alternate but found none'
@@ -205,7 +159,27 @@ fn test_function() {
 
 		expr := expr_stat_test(statements[0])
 
-		assert literal_test(expr, t[1], 'FunctionLiteral')
+		assert fn_test(expr, t[1])
+	}
+}
+
+fn fn_test(expr ast.Expression, val string) bool {
+	if expr is ast.FunctionLiteral {
+		parsed := val.split(',')
+
+		for i, ident in parsed {
+			if ident == '' {
+				continue
+			}
+			assert expr.parameters.len > i, 'Not enough parameters parsed'
+			assert test_expression(expr.parameters[i], LiteralSpec{ident.trim(' '), 'Identifier'})
+		}
+
+		assert expr.body.statements.len >= 1
+		return true
+	} else {
+		assert false, 'Not a function literal'
+		return false
 	}
 }
 
@@ -216,5 +190,46 @@ fn test_block_expression() {
 
 	expr := expr_stat_test(statements[0])
 
-	assert literal_test(expr, 'x + y', 'BlockLiteral')
+	assert block_test(expr, InfixSpec{LiteralSpec{'x', 'Identifier'}, '+', LiteralSpec{'y', 'Identifier'}})
+}
+
+fn block_test(expr ast.Expression, spec InfixSpec) bool {
+	if expr is ast.BlockLiteral {
+		assert expr.body.statements.len >= 1
+
+		stmt := expr.body.statements[0]
+
+		sub_expr := expr_stat_test(stmt)
+
+		assert test_expression(sub_expr, spec)
+
+		return true
+	} else {
+		assert false, 'Not block literal ${expr.type_name()}'
+		return false
+	}
+}
+
+fn test_call_expression() {
+	input := 'add(1+2, 3*4, 5);'
+
+	statements := common(input, 1)
+	expr := expr_stat_test(statements[0])
+	assert call_test(expr, [
+		InfixSpec{LiteralSpec{'1', 'IntegerLiteral'}, '+', LiteralSpec{'2', 'IntegerLiteral'}},
+		InfixSpec{LiteralSpec{'3', 'IntegerLiteral'}, '*', LiteralSpec{'4', 'IntegerLiteral'}},
+		LiteralSpec{'5', 'IntegerLiteral'},
+	])
+}
+
+fn call_test(expr ast.Expression, specs []TestSpec) bool {
+	if expr is ast.CallLiteral {
+		for i, spec in specs {
+			test_expression(expr.arguments[i], spec)
+		}
+		return true
+	} else {
+		assert false, 'Not call literal ${expr.type_name()}'
+		return false
+	}
 }
