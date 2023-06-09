@@ -129,7 +129,6 @@ i+=i;
 		TokenSequenceTest{token.TokenType.minus, '-'},
 		TokenSequenceTest{token.TokenType.integer_literal, '2'},
 		TokenSequenceTest{token.TokenType.semicolon, ';'},
-
 	]
 
 	mut l := new_lexer(input)

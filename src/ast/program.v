@@ -27,7 +27,7 @@ pub fn (p BlockStatement) block_string() string {
 	mut stats := ['BLOCK \n']
 
 	for s in p.statements {
-		stats << s.literal() + '\n'
+		stats << '  ' + s.literal() + '\n'
 	}
 
 	stats << 'BLOCK END'

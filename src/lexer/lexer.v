@@ -71,10 +71,10 @@ fn (mut l Lexer) int_next_token() token.Token {
 			l.new_token(token.TokenType.comma, ch)
 		}
 		`+` {
-			l.double_char_multi_option([`=`,`+`], [.plus, .plus_equals, .pf_plus])
+			l.double_char_multi_option([`=`, `+`], [.plus, .plus_equals, .pf_plus])
 		}
 		`-` {
-			l.double_char_multi_option([`=`,`-`], [.minus, .minus_equals, .pf_minus])
+			l.double_char_multi_option([`=`, `-`], [.minus, .minus_equals, .pf_minus])
 		}
 		`!` {
 			l.double_char_look(`=`, token.TokenType.bang, token.TokenType.neq)

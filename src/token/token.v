@@ -23,7 +23,6 @@ pub enum TokenType {
 	ident
 	integer_literal
 	float_literal
-	
 	assign
 	comment
 	// Operators
@@ -36,12 +35,9 @@ pub enum TokenType {
 	minus_equals
 	asterisk_equals
 	slash_equals
-
-	//Postfix Operators
-
+	// Postfix Operators
 	pf_plus
 	pf_minus
-
 	// Comparisons
 	gt
 	gte

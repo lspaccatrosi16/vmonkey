@@ -1,16 +1,6 @@
 module parser
 
 import ast
-import lexer
-
-struct VarTest {
-	name string
-	val  string
-}
-
-struct RetTest {
-	val string
-}
 
 struct PrefixTest {
 	input string
@@ -23,107 +13,6 @@ struct InfixTest {
 	op    string
 	left  string
 	right string
-}
-
-fn common(input string, stmt_len i32) []ast.Statement {
-	mut l := lexer.new_lexer(input)
-	tkns := l.run_lexer()
-
-	for err in l.lex_errors {
-		println(err.str())
-	}
-
-	assert l.lex_errors.len == 0
-	mut p := new_parser(tkns, input)
-
-	program := p.parse_program()
-
-	for err in p.parse_errors {
-		println(err.str())
-	}
-
-	assert p.parse_errors.len == 0
-
-	statements := program.get_statements()
-
-	assert statements.len == stmt_len, 'Did not return ${stmt_len} statements'
-
-	return statements
-}
-
-fn expr_stat_test(stmt ast.Statement) ast.Expression {
-	assert stmt is ast.ExpressionStatement, 'Not Expression Statement ${stmt.type_name()}'
-
-	expr := (stmt as ast.ExpressionStatement).value
-
-	return expr
-}
-
-fn test_var() {
-	input := '
-	let x = 5;
-	const y = 10.0;
-	let foobar = 0xffff;
-	'
-
-	statements := common(input, 3)
-
-	exp_idents := [VarTest{
-		name: 'x'
-		val: '5'
-	}, VarTest{
-		name: 'y'
-		val: '10.0'
-	}, VarTest{
-		name: 'foobar'
-		val: '0xffff'
-	}]
-
-	for i, tt in exp_idents {
-		stmt := statements[i]
-		assert var_statement_test(stmt, tt.name, tt.val), 'TEST ${i + 1} FAILED'
-	}
-}
-
-fn var_statement_test(s ast.Statement, name string, val string) bool {
-	if s is ast.VarStatement {
-		assert s.name.literal() == name, 'Expected name ${name}, Got: ${s.name.literal()}'
-		return true
-	} else {
-		assert false, 'Not let statement: ${s.type_name()}'
-		return false
-	}
-}
-
-fn test_return() {
-	input := '
-	return 5;
-	return 10;
-	return 69.420;
-	'
-	statements := common(input, 3)
-
-	exp_vals := [RetTest{
-		val: '5'
-	}, RetTest{
-		val: '10'
-	}, RetTest{
-		val: '69.420'
-	}]
-
-	for i, tt in exp_vals {
-		stmt := statements[i]
-		assert ret_statement_test(stmt, tt.val)
-	}
-}
-
-fn ret_statement_test(s ast.Statement, val string) bool {
-	if s is ast.ReturnStatement {
-		return true
-	} else {
-		assert false, 'Not return statement: ${s.type_name()}'
-		return false
-	}
 }
 
 fn test_ident() {
@@ -305,4 +194,27 @@ fn if_test(expr ast.Expression) bool {
 		assert false, 'Not If Expression ${expr.type_name()}'
 		return false
 	}
+}
+
+fn test_function() {
+	input := [['fn (x, y) { x + y; }', 'x,y'], ['fn () {x + y;}', ''],
+		['fn (x) {x;}', 'x']]
+
+	for t in input {
+		statements := common(t[0], 1)
+
+		expr := expr_stat_test(statements[0])
+
+		assert literal_test(expr, t[1], 'FunctionLiteral')
+	}
+}
+
+fn test_block_expression() {
+	input := '{ x + y; }'
+
+	statements := common(input, 1)
+
+	expr := expr_stat_test(statements[0])
+
+	assert literal_test(expr, 'x + y', 'BlockLiteral')
 }

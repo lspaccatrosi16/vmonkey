@@ -4,7 +4,9 @@ build:
 run: build 
 	@./dist/vmonkey
 
-test: test_lexer test_parser
+test: 
+	@echo "Testing all"
+	@v -stats test ./src/
 
 test_lexer: 
 	@echo "Testing Lexer"

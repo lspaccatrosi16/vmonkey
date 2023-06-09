@@ -275,6 +275,75 @@ fn (mut p Parser) get_else_statement() ?ast.BlockStatement {
 	}
 }
 
+fn (mut p Parser) parse_block_expression() ?ast.Expression {
+	tkn := p.current_token
+	body := p.parse_block_statement()
+
+	expr := ast.BlockLiteral{
+		token: tkn
+		body: body
+	}
+
+	return ast.Expression(expr)
+}
+
+fn (mut p Parser) parse_function_expression() ?ast.Expression {
+	tkn := p.current_token
+
+	if !p.expect_peak(.l_paren) {
+		return none
+	}
+
+	params := p.parse_function_parameters() or { return none }
+
+	if !p.expect_peak(.l_squirly) {
+		return none
+	}
+
+	body := p.parse_block_statement()
+
+	lit := ast.FunctionLiteral{
+		token: tkn
+		parameters: params
+		body: body
+	}
+
+	return ast.Expression(lit)
+}
+
+fn (mut p Parser) parse_function_parameters() ?[]ast.Identifier {
+	mut identifiers := []ast.Identifier{}
+
+	if p.peak_token_is(.r_paren) {
+		p.next_token()
+		return []
+	}
+
+	p.next_token()
+
+	mut ident := ast.Identifier{
+		token: p.current_token
+		value: p.current_token.literal
+	}
+	identifiers << ident
+
+	for p.peak_token_is(.comma) {
+		p.next_token()
+		p.next_token()
+		ident = ast.Identifier{
+			token: p.current_token
+			value: p.current_token.literal
+		}
+		identifiers << ident
+	}
+
+	if !p.expect_peak(.r_paren) {
+		return none
+	}
+
+	return identifiers
+}
+
 //
 //	STATEMENTS
 //
@@ -394,6 +463,7 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 	p.register_prefix_fn(.float_literal, p.parse_float_literal)
 	p.register_prefix_fn(.@true, p.parse_boolean_literal)
 	p.register_prefix_fn(.@false, p.parse_boolean_literal)
+	p.register_prefix_fn(.l_squirly, p.parse_block_expression)
 
 	// PREFIX EXPRESSIONS
 
@@ -403,6 +473,7 @@ pub fn new_parser(tkns []token.Token, source_code string) &Parser {
 	p.register_prefix_fn(.pf_minus, p.parse_prefix_expression)
 	p.register_prefix_fn(.l_paren, p.parse_grouped_expression)
 	p.register_prefix_fn(.@if, p.parse_if_expression)
+	p.register_prefix_fn(.function, p.parse_function_expression)
 
 	// INFIX EXPRESSIONS
 
