@@ -54,6 +54,10 @@ fn common(input string) &object.Object {
 
 	mut eval := new_evaluator(input)
 
+	defer {
+		eval.free()
+	}
+
 	obj := eval.eval(program)
 
 	for err in eval.eval_errors {

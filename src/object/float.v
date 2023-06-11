@@ -19,7 +19,7 @@ pub fn (f Float) arithmetic(op string, right Float) f64 {
 		'-' { f.value - right.value }
 		'*' { f.value * right.value }
 		'/' { f.value / right.value }
-		else {0.0}
+		else { 0.0 }
 	}
 }
 

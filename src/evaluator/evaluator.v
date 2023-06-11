@@ -10,7 +10,7 @@ const null = object.new_null_value()
 
 const o_size = sizeof(object.Object)
 
-fn get_null_ptr() &object.Object {
+fn get_null_ptr() voidptr {
 	return &evaluator.null
 }
 
@@ -18,6 +18,9 @@ pub struct Evaluator {
 	source_code string
 mut:
 	literal_map map[string]&object.Object
+	true_ptr    &object.Object
+	false_ptr   &object.Object
+	null_ptr    &object.Object
 pub mut:
 	eval_errors []error.BaseError
 }
@@ -58,31 +61,40 @@ pub fn (mut e Evaluator) free() {
 }
 
 pub fn (mut e Evaluator) eval(node ast.AstNode) ?&object.Object {
+	mut ret := e.null_ptr
+
 	if node is ast.Expression {
-		return e.eval_expression(node)
+		ret = e.eval_expression(node) or { return none }
 	} else if node is ast.Statement {
-		return e.eval_statement(node)
+		ret = e.eval_statement(node) or { return none }
 	} else if node is ast.BlockStatement {
-		return e.eval_block(node)
+		ret = e.eval_block(node) or { return none }
 	} else if node is ast.Program {
-		return e.eval_program(node)
+		ret = e.eval_program(node) or { return none }
+	} else {
+		return none
 	}
-	return none
+
+	return ret
 }
 
 pub fn (mut e Evaluator) eval_expression(expr ast.Expression) ?&object.Object {
+	mut ret := e.null_ptr
 	if expr is ast.IntegerLiteral {
-		return e.eval_integer(expr)
+		ret = e.eval_integer(expr) or { return none }
 	} else if expr is ast.FloatLiteral {
-		return e.eval_float(expr)
+		ret = e.eval_float(expr) or { return none }
 	} else if expr is ast.BooleanLiteral {
-		return e.eval_bool(expr)
+		ret = e.eval_bool(expr) or { return none }
 	} else if expr is ast.Node {
-		return e.eval_node(expr)
+		ret = e.eval_node(expr) or { return none }
+	} else if expr is ast.IfExpression {
+		ret = e.eval_if_expression(expr) or { return none }
+	} else {
+		e.make_eval_error(expr)
+		return none
 	}
-
-	e.make_eval_error(expr)
-	return none
+	return ret
 }
 
 pub fn (mut e Evaluator) eval_integer(expr ast.IntegerLiteral) ?&object.Object {
@@ -102,18 +114,17 @@ pub fn (mut e Evaluator) eval_float(expr ast.FloatLiteral) ?&object.Object {
 }
 
 pub fn (mut e Evaluator) eval_bool(expr ast.BooleanLiteral) ?&object.Object {
-	mut val_as_bool := false
-
+	mut ret := e.null_ptr
 	if expr.value == 'true' {
-		val_as_bool = true
+		ret = e.true_ptr
 	} else if expr.value == 'false' {
-		val_as_bool = false
+		ret = e.false_ptr
 	} else {
 		e.make_convert_error(expr)
 		return none
 	}
 
-	return e.make_val_literal(val_as_bool)
+	return ret
 }
 
 pub fn (mut e Evaluator) eval_node(expr ast.Node) ?&object.Object {
@@ -121,20 +132,20 @@ pub fn (mut e Evaluator) eval_node(expr ast.Node) ?&object.Object {
 		if lval := e.eval(l) {
 			lval
 		} else {
-			get_null_ptr()
+			e.null_ptr
 		}
 	} else {
-		get_null_ptr()
+		e.null_ptr
 	}
 
 	right := if r := expr.right {
 		if rval := e.eval(r) {
 			rval
 		} else {
-			get_null_ptr()
+			e.null_ptr
 		}
 	} else {
-		get_null_ptr()
+		e.null_ptr
 	}
 
 	if right.is_null() {
@@ -217,6 +228,31 @@ pub fn (mut e Evaluator) handle_infix_node_result(f object.InfixOperation, op st
 	return e.make_val_literal(val)
 }
 
+pub fn (mut e Evaluator) eval_if_expression(expr ast.IfExpression) ?&object.Object {
+	mut condition := e.null_ptr
+	condition = e.eval(expr.condition) or { return none }
+	if condition is object.Boolean {
+		t := unsafe {
+			&condition == e.true_ptr
+		}
+
+		if t {
+			conseq := e.eval(expr.consequence) or { return none }
+
+			return conseq
+		} else {
+			if con := expr.alternative {
+				return e.eval(con)
+			} else {
+				return none
+			}
+		}
+	} else {
+		e.make_expr_err(expr.token, 'Condition must precisely be of type boolean, not ${condition.type_name()}')
+		return none
+	}
+}
+
 pub fn (mut e Evaluator) eval_statement(stat ast.Statement) ?&object.Object {
 	if stat is ast.ExpressionStatement {
 		return e.eval(stat.value)
@@ -227,15 +263,20 @@ pub fn (mut e Evaluator) eval_statement(stat ast.Statement) ?&object.Object {
 }
 
 pub fn (mut e Evaluator) eval_block(block ast.BlockStatement) ?&object.Object {
-	e.make_eval_error(block)
-	return none
+	mut result := e.null_ptr
+
+	for stat in block.statements {
+		result = e.eval(stat) or { e.null_ptr }
+	}
+
+	return result
 }
 
 pub fn (mut e Evaluator) eval_program(prog ast.Program) ?&object.Object {
-	mut result := get_null_ptr()
+	mut result := e.null_ptr
 
 	for stat in prog.statements {
-		result = e.eval(stat) or { &evaluator.null }
+		result = e.eval(stat) or { e.null_ptr }
 	}
 
 	return result
@@ -281,7 +322,14 @@ pub fn (mut e Evaluator) make_expr_err(tkn token.Token, str string) {
 }
 
 pub fn new_evaluator(src string) Evaluator {
-	return Evaluator{
+	mut e := Evaluator{
 		source_code: src
+		true_ptr: get_null_ptr()
+		false_ptr: get_null_ptr()
+		null_ptr: get_null_ptr()
 	}
+	e.true_ptr = e.make_val_literal(true)
+	e.false_ptr = e.make_val_literal(false)
+
+	return e
 }

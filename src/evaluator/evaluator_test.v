@@ -1,31 +1,22 @@
 module evaluator
 
 fn test_integer_eval() {
-	tests := [IntTest{'10', 10}, IntTest{'5', 5}, IntTest{'0b10', 2},
+	tests := [TestType(IntTest{'10', 10}), IntTest{'5', 5}, IntTest{'0b10', 2},
 		IntTest{'0o77', 63}, IntTest{'0xf2a', 3882}]
 
-	for t in tests {
-		evaluated := common(t.input)
-		assert test_literal(evaluated, t.expected)
-	}
+	run_tests(tests)
 }
 
 fn test_float_eval() {
-	tests := [FloatTest{'0.2', 0.2}, FloatTest{'1.2', 1.2}]
+	tests := [TestType(FloatTest{'0.2', 0.2}), FloatTest{'1.2', 1.2}]
 
-	for t in tests {
-		evaluated := common(t.input)
-		assert test_literal(evaluated, t.expected)
-	}
+	run_tests(tests)
 }
 
 fn test_bool_eval() {
-	tests := [BoolTest{'true', true}, BoolTest{'false', false}]
+	tests := [TestType(BoolTest{'true', true}), BoolTest{'false', false}]
 
-	for t in tests {
-		evaluated := common(t.input)
-		assert test_literal(evaluated, t.expected)
-	}
+	run_tests(tests)
 }
 
 fn test_prefix_operators() {
@@ -33,10 +24,7 @@ fn test_prefix_operators() {
 		BoolTest{'!!true', true}, IntTest{'-1', -1}, IntTest{'-0xff', -255},
 		FloatTest{'-3.33', -3.33}]
 
-	for t in tests {
-		evaluated := common(t.input)
-		assert test_literal(evaluated, t.expected())
-	}
+	run_tests(tests)
 }
 
 fn test_infix_operators() {
@@ -48,8 +36,21 @@ fn test_infix_operators() {
 		BoolTest{'true==true', true}, BoolTest{'false != false', false},
 		BoolTest{'(1 < 2) == false', false}, BoolTest{'( ( 1 + 1 ) > 1) == true', true}]
 
-	for t in tests {
+	run_tests(tests)
+}
+
+fn test_if_expression() {
+	tests := [TestType(IntTest{'if (true) {10}', 10}), IntTest{'if (false) {10} else {20}', 20},
+		BoolTest{'if (2 > 1) { false } else {true}', false}]
+	run_tests(tests)
+}
+
+fn run_tests(tests []TestType) {
+	print('RUN: ')
+	for i, t in tests {
+		print('${i + 1}, ')
 		evaluated := common(t.input)
 		assert test_literal(evaluated, t.expected())
 	}
+	println('\nALL TESTS RUN')
 }
