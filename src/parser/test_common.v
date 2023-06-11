@@ -1,9 +1,7 @@
 module parser
 
 import ast
-
-import lexer 
-
+import lexer
 
 fn common(input string, stmt_len i32) []ast.Statement {
 	mut l := lexer.new_lexer(input)

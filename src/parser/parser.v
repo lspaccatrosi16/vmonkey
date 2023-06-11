@@ -428,7 +428,7 @@ fn (mut p Parser) parse_var_statement() ?ast.Statement {
 
 	p.next_token()
 
-	val := p.parse_expression(.lowest) or {return none}
+	val := p.parse_expression(.lowest) or { return none }
 
 	if p.peak_token_is(.semicolon) {
 		p.next_token()
@@ -447,7 +447,7 @@ fn (mut p Parser) parse_return_statement() ?ast.Statement {
 
 	p.next_token()
 
-	ret := p.parse_expression(.lowest) or {return none}
+	ret := p.parse_expression(.lowest) or { return none }
 
 	if p.peak_token_is(.semicolon) {
 		p.next_token()

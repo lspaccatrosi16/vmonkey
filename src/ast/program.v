@@ -40,3 +40,19 @@ pub fn (p BlockStatement) get_statements() []Statement {
 }
 
 pub type Program = BlockStatement
+
+pub type AstNode = BlockStatement | Expression | Program | Statement
+
+pub fn (a AstNode) get_token() ?token.Token {
+	if a is BlockStatement {
+		return a.token?
+	} else if a is Expression {
+		return a.token
+	} else if a is Statement {
+		return a.token
+	} else if a is Program {
+		return none
+	}
+
+	return none
+}

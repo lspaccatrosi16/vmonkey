@@ -1,5 +1,5 @@
 build: 
-	@v -o dist/vmonkey ./
+	@v -g -o dist/vmonkey ./
 
 run: build 
 	@./dist/vmonkey
@@ -15,6 +15,10 @@ test_lexer:
 test_parser: 
 	@echo "Testing Parser"
 	@v -stats test ./src/parser/ 
+
+test_evaluator:
+	@echo "Testing Evaluator"
+	@v -stats test ./src/evaluator/
 
 fmt: 
 	@v fmt -w ./

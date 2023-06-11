@@ -47,7 +47,7 @@ fn literal_test(expr ast.Expression, spec LiteralSpec) bool {
 	t := spec.t
 
 	if t != '*' {
-		assert expr.type_name() == 'src.ast.' + t
+		assert expr.type_name() == 'ast.' + t
 	}
 
 	if expr is ast.Identifier {

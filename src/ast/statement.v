@@ -9,12 +9,10 @@ pub enum StatementType {
 	expr_stat
 }
 
-pub type Statement = EmptyStatement | ExpressionStatement | ReturnStatement | VarStatement
+pub type Statement = ExpressionStatement | ReturnStatement | VarStatement
 
 pub fn (s Statement) literal() string {
-	if s is EmptyStatement {
-		return '<EMPTY STAT>'
-	} else if s is VarStatement {
+	if s is VarStatement {
 		return s.stat_string()
 	} else if s is ReturnStatement {
 		return s.stat_string()
@@ -23,10 +21,6 @@ pub fn (s Statement) literal() string {
 	}
 
 	return '<UNKOWN STATEMENT>'
-}
-
-pub fn make_empty_statement() EmptyStatement {
-	return EmptyStatement{}
 }
 
 pub struct EmptyStatement {

@@ -4,6 +4,7 @@ import lexer
 import parser
 import readline
 import term
+import evaluator
 
 fn clear_screen() {
 	term.clear()
@@ -68,15 +69,31 @@ pub fn start() {
 			}
 			continue
 		}
-
 		statements := (*program).get_statements()
 
-		if statements.len > 0 {
+		mut eval := evaluator.new_evaluator(prog_ipt)
+
+		obj := eval.eval(program)
+
+		if eval.eval_errors.len >= 1 {
+			for e in eval.eval_errors {
+				println(e.str())
+			}
+			eval.free()
+
+			continue
+		}
+
+		if r := obj {
+			println((*r).string())
+		} else if statements.len > 0 {
 			println(program.prog_string())
 		} else {
 			for tok in tokens {
 				print('${tok.token_type.str().to_upper()} : ${tok.literal}\n')
 			}
 		}
+
+		eval.free()
 	}
 }

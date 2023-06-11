@@ -5,14 +5,14 @@ import term
 pub enum ErrorType {
 	lexer_error
 	parser_error
-	interpreter_error
+	evaluator_error
 }
 
 fn (e ErrorType) str() string {
 	return match e {
 		.lexer_error { 'LexerError' }
 		.parser_error { 'ParserError' }
-		.interpreter_error { 'InterpreterError' }
+		.evaluator_error { 'EvaluatorError' }
 	}
 }
 

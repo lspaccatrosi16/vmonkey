@@ -30,7 +30,6 @@ pub fn (n Node) literal() string {
 type Expression = BlockLiteral
 	| BooleanLiteral
 	| CallLiteral
-	| EmptyNode
 	| FloatLiteral
 	| FunctionLiteral
 	| Identifier
@@ -39,9 +38,7 @@ type Expression = BlockLiteral
 	| Node
 
 pub fn (e Expression) literal() string {
-	if e is EmptyNode {
-		return '<EMPTY EXPR>'
-	} else if e is Identifier {
+	if e is Identifier {
 		return e.literal()
 	} else if e is Node {
 		return e.literal()
@@ -64,6 +61,8 @@ pub fn (e Expression) literal() string {
 	assert false, 'UKNOWN EXPRESSION'
 	return '<UNKNOWN EXPR>'
 }
+
+pub type Literal = BooleanLiteral | FloatLiteral | Identifier | IntegerLiteral
 
 pub struct Identifier {
 pub:
@@ -176,8 +175,4 @@ pub fn (cl CallLiteral) literal() string {
 	str += ')'
 
 	return str
-}
-
-pub fn make_empty_expr() Expression {
-	return EmptyNode{}
 }
