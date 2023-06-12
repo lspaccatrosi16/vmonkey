@@ -112,5 +112,5 @@ pub fn new_token(tokenType TokenType, ch Literal, line i32, col i32) Token {
 }
 
 pub fn eof_token() Token {
-	return new_token(TokenType.eof, '', -1, -1)
+	return new_token(TokenType.eof, '', 0, 0)
 }

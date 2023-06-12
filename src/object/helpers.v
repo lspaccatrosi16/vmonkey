@@ -5,6 +5,18 @@ pub fn new_null_value() Object {
 	return Object(null)
 }
 
+pub fn new_environment() &Environment {
+	return &Environment{
+		outer: 0
+	}
+}
+
+pub fn new_enclosed_environment(outer &Environment) &Environment {
+	return &Environment{
+		outer: outer
+	}
+}
+
 fn make_incompat_error_str(op string, obj Object) string {
 	return 'Cannot apply ${op} to ${obj.type_name()}'
 }

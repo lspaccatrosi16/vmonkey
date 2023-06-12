@@ -3,6 +3,7 @@ module repl
 import lexer
 import parser
 import readline
+import object
 import term
 import evaluator
 
@@ -11,6 +12,7 @@ fn clear_screen() {
 	println('Enter vmonkey program')
 	println('${'.clear':-10}: clears screen')
 	println('${'.exit':-10}: exit')
+	println('${'.reset':-10}: resets environment')
 	println('${'.rs':-10}: restart input')
 }
 
@@ -18,6 +20,8 @@ pub fn start() {
 	clear_screen()
 	width, _ := term.get_terminal_size()
 	divider := '='.repeat(width)
+
+	mut env := object.new_environment()
 
 	top: for {
 		println(divider)
@@ -34,6 +38,10 @@ pub fn start() {
 				break top
 			} else if line == '.clear\n' {
 				clear_screen()
+				continue top
+			} else if line == '.reset\n' {
+				clear_screen()
+				env = object.new_environment()
 				continue top
 			}
 
@@ -73,7 +81,7 @@ pub fn start() {
 
 		mut eval := evaluator.new_evaluator(prog_ipt)
 
-		obj := eval.eval(program)
+		obj := eval.eval(program, mut env)
 
 		if eval.eval_errors.len >= 1 {
 			for e in eval.eval_errors {

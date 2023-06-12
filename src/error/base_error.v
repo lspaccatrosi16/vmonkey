@@ -29,6 +29,13 @@ const line_delim = '| '
 pub fn (e BaseError) str() string {
 	mut error_strings := []string{}
 	lines := e.source_code.split('\n')
+
+	if lines.len <= e.line {
+		dump(lines)
+		dump(e.line)
+		panic('error generated but line does not exist in source')
+	}
+
 	this_line := lines[e.line]
 	mut prev_line := ''
 	mut next_line := ''

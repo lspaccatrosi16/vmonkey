@@ -58,7 +58,9 @@ fn common(input string) &object.Object {
 		eval.free()
 	}
 
-	obj := eval.eval(program)
+	mut env := object.new_environment()
+
+	obj := eval.eval(program, mut env)
 
 	for err in eval.eval_errors {
 		println(err.str())

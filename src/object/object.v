@@ -7,7 +7,12 @@ pub fn (n Null) str() string {
 	return 'null'
 }
 
-pub type Object = Boolean | Float | Integer | Null
+pub struct ReturnValue {
+pub:
+	value &Object
+}
+
+pub type Object = Boolean | Float | Function | Integer | Null | ReturnValue
 pub type Literal = bool | f64 | i64
 
 pub type PrefixOperation = fn (right Object) !Literal
@@ -22,6 +27,8 @@ pub fn (o Object) string() string {
 	} else if o is Boolean {
 		return o.str()
 	} else if o is Null {
+		return o.str()
+	} else if o is Function {
 		return o.str()
 	}
 

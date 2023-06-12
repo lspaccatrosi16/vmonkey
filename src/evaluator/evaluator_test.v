@@ -45,6 +45,44 @@ fn test_if_expression() {
 	run_tests(tests)
 }
 
+fn test_return_statement() {
+	tests := [TestType(IntTest{'return 10;', 10}), IntTest{'2; return 2 * 2;', 4},
+		IntTest{'return 2; 4', 2}, IntTest{'4; return (3 * 4) / 6; 4;', 2},
+		IntTest{'if(true) { if (true) {return 10;} return 1;}', 10}]
+	run_tests(tests)
+}
+
+fn test_let_statement() {
+	tests := [TestType(IntTest{'let a = 10; a;', 10}), IntTest{'let a = 5 * 5; a;', 25},
+		IntTest{'let a = 2; let b = a; b;', 2},
+		IntTest{'let a = 2; let b = a + 1; let c = a + b + 4; c;', 9}]
+
+	run_tests(tests)
+}
+
+fn test_const_statement() {
+	tests := [TestType(IntTest{'const a = 10; a;', 10}), IntTest{'const a = 5 * 5; a;', 25},
+		IntTest{'const a = 2; const b = a; b;', 2},
+		IntTest{'const a = 2; const b = a + 1; const c = a + b + 4; c;', 9}]
+
+	run_tests(tests)
+}
+
+fn test_function() {
+	tests := [TestType(IntTest{'const a = fn() {2}; a()', 2}),
+		FloatTest{'const i = fn (x) {return x}; i(4.44)', 4.44},
+		IntTest{'const a = fn(x,y) {x + y}; a(2, 3)', 5}, BoolTest{'fn(x) {x;}(true)', true},
+		IntTest{'const add = fn(a,b){a + b}; add(5, add(5, 5));', 15}]
+	run_tests(tests)
+}
+
+fn test_closure() {
+	tests := [
+		TestType(IntTest{'const newAdder = fn (x) {fn(y){x + y}}; const addTwo = newAdder(2); addTwo(2);', 4}),
+	]
+	run_tests(tests)
+}
+
 fn run_tests(tests []TestType) {
 	print('RUN: ')
 	for i, t in tests {
