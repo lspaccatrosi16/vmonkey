@@ -12,6 +12,8 @@ pub fn new_environment() &Environment {
 }
 
 pub fn new_enclosed_environment(outer &Environment) &Environment {
+	dump(gc_memory_use())
+	// dump(gc_heap_usage())
 	return &Environment{
 		outer: outer
 	}

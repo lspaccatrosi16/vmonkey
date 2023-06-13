@@ -17,6 +17,21 @@ fn get_null_ptr() voidptr {
 }
 
 [heap]
+pub struct ObjectWrapper {
+	ptr &object.Object = unsafe { 0 }
+	obj object.Object
+}
+
+pub fn (o ObjectWrapper) get_obj() object.Object {
+	if unsafe { o.ptr == 0 } {
+		return o.obj
+	} else {
+		obj := unsafe { *o.ptr }
+		return obj
+	}
+}
+
+[heap]
 pub struct Evaluator {
 	source_code string
 	obj_track   bool
@@ -33,7 +48,34 @@ pub mut:
 	eval_count      i64
 }
 
-fn (mut e Evaluator) cache_object_strat_c(val object.Literal) &object.Object {
+fn (e Evaluator) wrap_value(val object.Object) ObjectWrapper {
+	return match e.strat {
+		'cache_c' {
+			ObjectWrapper{
+				ptr: &val
+			}
+		}
+		'cache_v' {
+			ObjectWrapper{
+				ptr: &val
+			}
+		}
+		'direct' {
+			ObjectWrapper{
+				obj: val
+			}
+		}
+		else {
+			panic('unknown object stratergy ${e.strat}')
+		}
+	}
+}
+
+fn (e Evaluator) get_null_wrapped() ObjectWrapper {
+	return e.wrap_value(e.null_ptr)
+}
+
+fn (mut e Evaluator) cache_object_strat_c(val object.Literal) ObjectWrapper {
 	key := match val {
 		bool { 'BOOL_${val}' }
 		f64 { 'F64_${val}' }
@@ -41,7 +83,9 @@ fn (mut e Evaluator) cache_object_strat_c(val object.Literal) &object.Object {
 	}
 
 	if v := e.literal_map[key] {
-		return v
+		return ObjectWrapper{
+			ptr: v
+		}
 	} else {
 		if _unlikely_(e.obj_track) {
 			e.lit_alloc_count++
@@ -55,11 +99,14 @@ fn (mut e Evaluator) cache_object_strat_c(val object.Literal) &object.Object {
 		obj_ptr := unsafe { memdup_uncollectable(&obj, int(evaluator.o_size)) }
 		unsafe { free(obj) }
 		e.literal_map[key] = obj_ptr
-		return obj_ptr
+
+		return ObjectWrapper{
+			ptr: obj_ptr
+		}
 	}
 }
 
-fn (mut e Evaluator) cache_object_strat_v(val object.Literal) &object.Object {
+fn (mut e Evaluator) cache_object_strat_v(val object.Literal) ObjectWrapper {
 	key := match val {
 		bool { 'BOOL_${val}' }
 		f64 { 'F64_${val}' }
@@ -67,7 +114,9 @@ fn (mut e Evaluator) cache_object_strat_v(val object.Literal) &object.Object {
 	}
 
 	if v := e.literal_map[key] {
-		return v
+		return ObjectWrapper{
+			ptr: v
+		}
 	} else {
 		if _unlikely_(e.obj_track) {
 			e.lit_alloc_count++
@@ -81,33 +130,30 @@ fn (mut e Evaluator) cache_object_strat_v(val object.Literal) &object.Object {
 		obj_ptr := vcalloc(int(evaluator.o_size))
 		unsafe {
 			vmemcpy(obj_ptr, &obj, int(evaluator.o_size))
-			e.literal_map[key] = obj_ptr // incompat warm
 		}
+		e.literal_map[key] = obj_ptr // incompat warm
 		unsafe { free(obj) }
-		return obj_ptr
+		return ObjectWrapper{
+			ptr: obj_ptr
+		}
 	}
 }
 
-fn (e Evaluator) direct_object_strat(val object.Literal) &object.Object {
+fn (e Evaluator) direct_object_strat(val object.Literal) ObjectWrapper {
 	obj := match val {
 		bool { object.Object(object.Boolean{val}) }
 		f64 { object.Object(object.Float{val}) }
 		i64 { object.Object(object.Integer{val}) }
 	}
 
-	dest_ptr := vcalloc(int(evaluator.o_size))
-
-	unsafe {
-		vmemcpy(dest_ptr, &obj, int(evaluator.o_size))
-	}
-	unsafe { free(obj) }
-
 	// println('make ${val} ${&obj:p} ${dest_ptr:p}')
 
-	return dest_ptr // incompat ptr
+	return ObjectWrapper{
+		obj: obj
+	}
 }
 
-pub fn (mut e Evaluator) make_val_literal(val object.Literal) &object.Object {
+pub fn (mut e Evaluator) make_val_literal(val object.Literal) ObjectWrapper {
 	return match e.strat {
 		'cache_c' {
 			e.cache_object_strat_c(val)
@@ -124,15 +170,15 @@ pub fn (mut e Evaluator) make_val_literal(val object.Literal) &object.Object {
 	}
 }
 
-pub fn (mut e Evaluator) compare_vals(left object.Object, right object.Object) bool {
+pub fn (mut e Evaluator) compare_vals(left ObjectWrapper, right ObjectWrapper) bool {
 	// println('l ${&left:p} r ${&right:p}')
 
 	match e.strat {
 		'cache_c', 'cache_v' {
-			return &left == &right
+			return &left.ptr == &right.ptr && &left.ptr != 0
 		}
 		'direct' {
-			return left.compare(right) or { false }
+			return left.get_obj().compare(right.get_obj()) or { false }
 		}
 		else {
 			panic('unknown object stratergy ${e.strat}')
@@ -154,61 +200,55 @@ pub fn (mut e Evaluator) free() {
 	}
 }
 
-pub fn (mut e Evaluator) eval(node ast.AstNode, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval(node ast.AstNode, mut env object.Environment) ?ObjectWrapper {
 	if _unlikely_(e.obj_track) {
 		e.eval_count++
 		// dump(node)
 	}
-
-	mut ret := e.null_ptr
 
 	if e.scope_errors.len >= 1 {
 		return none
 	}
 
 	if node is ast.Expression {
-		ret = e.eval_expression(node, mut env) or { return none }
+		return e.eval_expression(node, mut env) or { return none }
 	} else if node is ast.Statement {
-		ret = e.eval_statement(node, mut env) or { return none }
+		return e.eval_statement(node, mut env) or { return none }
 	} else if node is ast.BlockStatement {
-		ret = e.eval_block(node, mut env) or { return none }
+		return e.eval_block(node, mut env) or { return none }
 	} else if node is ast.Program {
-		ret = e.eval_program(node, mut env) or { return none }
+		return e.eval_program(node, mut env) or { return none }
 	} else {
 		return none
 	}
-
-	return ret
 }
 
-pub fn (mut e Evaluator) eval_expression(expr ast.Expression, mut env object.Environment) ?&object.Object {
-	mut ret := e.null_ptr
+pub fn (mut e Evaluator) eval_expression(expr ast.Expression, mut env object.Environment) ?ObjectWrapper {
 	if expr is ast.IntegerLiteral {
-		ret = e.eval_integer(expr) or { return none }
+		return e.eval_integer(expr) or { return none }
 	} else if expr is ast.FloatLiteral {
-		ret = e.eval_float(expr) or { return none }
+		return e.eval_float(expr) or { return none }
 	} else if expr is ast.BooleanLiteral {
-		ret = e.eval_bool(expr) or { return none }
+		return e.eval_bool(expr) or { return none }
 	} else if expr is ast.Node {
-		ret = e.eval_node(expr, mut env) or { return none }
+		return e.eval_node(expr, mut env) or { return none }
 	} else if expr is ast.IfExpression {
-		ret = e.eval_if_expression(expr, mut env) or { return none }
+		return e.eval_if_expression(expr, mut env) or { return none }
 	} else if expr is ast.Identifier {
-		ret = e.eval_identifier(expr, mut env) or { return none }
+		return e.eval_identifier(expr, mut env) or { return none }
 	} else if expr is ast.BlockLiteral {
-		ret = e.eval_block(expr.body, mut env) or { return none }
+		return e.eval_block(expr.body, mut env) or { return none }
 	} else if expr is ast.FunctionLiteral {
-		ret = e.eval_function_literal(expr, mut env) or { return none }
+		return e.eval_function_literal(expr, mut env) or { return none }
 	} else if expr is ast.CallLiteral {
-		ret = e.eval_call_expression(expr, mut env) or { return none }
+		return e.eval_call_expression(expr, mut env) or { return none }
 	} else {
 		e.make_eval_error(expr)
 		return none
 	}
-	return ret
 }
 
-pub fn (mut e Evaluator) eval_integer(expr ast.IntegerLiteral) ?&object.Object {
+pub fn (mut e Evaluator) eval_integer(expr ast.IntegerLiteral) ?ObjectWrapper {
 	val_as_int := strconv.parse_int(expr.value, 0, 64) or {
 		e.make_convert_error(expr)
 		return none
@@ -216,7 +256,7 @@ pub fn (mut e Evaluator) eval_integer(expr ast.IntegerLiteral) ?&object.Object {
 	return e.make_val_literal(val_as_int)
 }
 
-pub fn (mut e Evaluator) eval_float(expr ast.FloatLiteral) ?&object.Object {
+pub fn (mut e Evaluator) eval_float(expr ast.FloatLiteral) ?ObjectWrapper {
 	val_as_float := strconv.atof64(expr.value) or {
 		e.make_convert_error(expr)
 		return none
@@ -224,55 +264,52 @@ pub fn (mut e Evaluator) eval_float(expr ast.FloatLiteral) ?&object.Object {
 	return e.make_val_literal(val_as_float)
 }
 
-pub fn (mut e Evaluator) eval_bool(expr ast.BooleanLiteral) ?&object.Object {
-	mut ret := e.null_ptr
+pub fn (mut e Evaluator) eval_bool(expr ast.BooleanLiteral) ?ObjectWrapper {
 	if expr.value == 'true' {
-		ret = e.make_val_literal(true)
+		return e.make_val_literal(true)
 	} else if expr.value == 'false' {
-		ret = e.make_val_literal(false)
+		return e.make_val_literal(false)
 	} else {
 		e.make_convert_error(expr)
 		return none
 	}
-
-	return ret
 }
 
-pub fn (mut e Evaluator) eval_node(expr ast.Node, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_node(expr ast.Node, mut env object.Environment) ?ObjectWrapper {
 	mut left := if l := expr.left {
 		if lval := e.eval(l, mut env) {
 			lval
 		} else {
-			e.null_ptr
+			e.get_null_wrapped()
 		}
 	} else {
-		e.null_ptr
+		e.get_null_wrapped()
 	}
 
 	right := if r := expr.right {
 		if rval := e.eval(r, mut env) {
 			rval
 		} else {
-			e.null_ptr
+			e.get_null_wrapped()
 		}
 	} else {
-		e.null_ptr
+		e.get_null_wrapped()
 	}
 
-	if right.is_null() {
+	if right.get_obj().is_null() {
 		return none
 		// dump(expr)
 		// panic('Right side of a node must always contain a value')
 	}
 
-	if left.is_null() {
+	if left.get_obj().is_null() {
 		return e.eval_prefix_expression(expr.operator, right, expr.token) or { return none }
 	} else {
 		return e.eval_infix_expression(expr.operator, left, right, expr.token) or { return none }
 	}
 }
 
-pub fn (mut e Evaluator) eval_node_side(s ?ast.Expression, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_node_side(s ?ast.Expression, mut env object.Environment) ?ObjectWrapper {
 	if side := s {
 		return e.eval(side, mut env) or { none }
 	} else {
@@ -280,7 +317,7 @@ pub fn (mut e Evaluator) eval_node_side(s ?ast.Expression, mut env object.Enviro
 	}
 }
 
-pub fn (mut e Evaluator) eval_prefix_expression(operator string, right object.Object, tkn token.Token) ?&object.Object {
+pub fn (mut e Evaluator) eval_prefix_expression(operator string, right ObjectWrapper, tkn token.Token) ?ObjectWrapper {
 	return match operator {
 		'!' {
 			e.handle_prefix_node_result(object.bang, right, tkn)
@@ -289,14 +326,14 @@ pub fn (mut e Evaluator) eval_prefix_expression(operator string, right object.Ob
 			e.handle_prefix_node_result(object.negate, right, tkn)
 		}
 		else {
-			e.make_expr_err(tkn, 'No handler for prefix operator ${operator} for ${right.type_name()}')
+			e.make_expr_err(tkn, 'No handler for prefix operator ${operator} for ${right.get_obj().type_name()}')
 			none
 		}
 	}
 }
 
-pub fn (mut e Evaluator) handle_prefix_node_result(f object.PrefixOperation, right object.Object, tkn token.Token) ?&object.Object {
-	val := f(right) or {
+pub fn (mut e Evaluator) handle_prefix_node_result(fp object.PrefixOperation, right ObjectWrapper, tkn token.Token) ?ObjectWrapper {
+	val := fp(right.get_obj()) or {
 		e.make_expr_err(tkn, err.msg())
 		return none
 	}
@@ -304,7 +341,7 @@ pub fn (mut e Evaluator) handle_prefix_node_result(f object.PrefixOperation, rig
 	return e.make_val_literal(val)
 }
 
-pub fn (mut e Evaluator) eval_infix_expression(operator string, left object.Object, right object.Object, tkn token.Token) ?&object.Object {
+pub fn (mut e Evaluator) eval_infix_expression(operator string, left ObjectWrapper, right ObjectWrapper, tkn token.Token) ?ObjectWrapper {
 	return match operator {
 		'+', '-', '*', '/' {
 			e.handle_infix_node_result(object.arithmetic, operator, left, right, tkn)
@@ -323,14 +360,14 @@ pub fn (mut e Evaluator) eval_infix_expression(operator string, left object.Obje
 			e.handle_infix_node_result(object.gt_lt, operator, left, right, tkn)
 		}
 		else {
-			e.make_expr_err(tkn, 'No handler for infix operator ${operator} for ${left.type_name()}')
+			e.make_expr_err(tkn, 'No handler for infix operator ${operator} for ${left.get_obj().type_name()}')
 			none
 		}
 	}
 }
 
-pub fn (mut e Evaluator) handle_infix_node_result(f object.InfixOperation, op string, left object.Object, right object.Object, tkn token.Token) ?&object.Object {
-	val := f(op, left, right) or {
+pub fn (mut e Evaluator) handle_infix_node_result(f object.InfixOperation, op string, left ObjectWrapper, right ObjectWrapper, tkn token.Token) ?ObjectWrapper {
+	val := f(op, left.get_obj(), right.get_obj()) or {
 		e.make_expr_err(tkn, err.msg())
 		return none
 	}
@@ -338,13 +375,10 @@ pub fn (mut e Evaluator) handle_infix_node_result(f object.InfixOperation, op st
 	return e.make_val_literal(val)
 }
 
-pub fn (mut e Evaluator) eval_if_expression(expr ast.IfExpression, mut env object.Environment) ?&object.Object {
-	mut condition := e.null_ptr
-	condition = e.eval(expr.condition, mut env) or { return none }
-	if condition is object.Boolean {
-		t := unsafe {
-			&condition == e.true_ptr
-		}
+pub fn (mut e Evaluator) eval_if_expression(expr ast.IfExpression, mut env object.Environment) ?ObjectWrapper {
+	condition := (e.eval(expr.condition, mut env) or { return none })
+	if condition.get_obj() is object.Boolean {
+		t := e.compare_vals(condition, e.make_val_literal(true))
 
 		if t {
 			conseq := e.eval(expr.consequence, mut env) or { return none }
@@ -358,21 +392,21 @@ pub fn (mut e Evaluator) eval_if_expression(expr ast.IfExpression, mut env objec
 			}
 		}
 	} else {
-		e.make_expr_err(expr.token, 'Condition must precisely be of type boolean, not ${condition.type_name()}')
+		e.make_expr_err(expr.token, 'Condition must precisely be of type boolean, not ${condition.get_obj().type_name()}')
 		return none
 	}
 }
 
-pub fn (mut e Evaluator) eval_identifier(expr ast.Identifier, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_identifier(expr ast.Identifier, mut env object.Environment) ?ObjectWrapper {
 	val := env.get(expr.value) or {
 		e.make_expr_err(expr.token, err.msg())
 		return none
 	}
 
-	return val
+	return e.wrap_value(val)
 }
 
-pub fn (mut e Evaluator) eval_function_literal(expr ast.FunctionLiteral, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_function_literal(expr ast.FunctionLiteral, mut env object.Environment) ?ObjectWrapper {
 	params := expr.parameters
 	body := expr.body
 	fn_lit := object.Function{
@@ -380,20 +414,20 @@ pub fn (mut e Evaluator) eval_function_literal(expr ast.FunctionLiteral, mut env
 		body: body
 		env: env
 	}
-	return &fn_lit
+	return e.wrap_value(fn_lit)
 }
 
-pub fn (mut e Evaluator) eval_call_expression(expr ast.CallLiteral, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_call_expression(expr ast.CallLiteral, mut env object.Environment) ?ObjectWrapper {
 	function_obj := e.eval(expr.function, mut env) or { return none }
 
-	if function_obj !is object.Function {
-		e.make_expr_err(expr.token, 'Object is not a Function ${function_obj.type_name()}')
+	if function_obj.get_obj() !is object.Function {
+		e.make_expr_err(expr.token, 'Object is not a Function ${function_obj.get_obj().type_name()}')
 		return none
 	}
 
-	function := function_obj as object.Function
+	function := function_obj.get_obj() as object.Function
 
-	mut args := []&object.Object{}
+	mut args := []ObjectWrapper{}
 
 	for arg in expr.arguments {
 		v := e.eval(arg, mut env) or { return none }
@@ -408,22 +442,23 @@ pub fn (mut e Evaluator) eval_call_expression(expr ast.CallLiteral, mut env obje
 	mut ext_env := object.new_enclosed_environment(function.env)
 
 	for i, param in function.parameters {
-		ext_env.declare(param.value, args[i], false) or {
+		ext_env.declare(param.value, args[i].get_obj(), false) or {
 			e.make_expr_err(param.token, err.msg())
 			return none
 		}
 	}
 
 	f_res := e.eval(function.body, mut ext_env) or { return none }
+	f_res_obj := f_res.get_obj()
 
-	if f_res is object.ReturnValue {
-		return f_res.value
+	if f_res_obj is object.ReturnValue {
+		return e.wrap_value(f_res_obj.value)
 	}
 
 	return f_res
 }
 
-pub fn (mut e Evaluator) eval_statement(stat ast.Statement, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_statement(stat ast.Statement, mut env object.Environment) ?ObjectWrapper {
 	if stat is ast.ExpressionStatement {
 		return e.eval(stat.value, mut env)
 	} else if stat is ast.ReturnStatement {
@@ -438,45 +473,45 @@ pub fn (mut e Evaluator) eval_statement(stat ast.Statement, mut env object.Envir
 	return none
 }
 
-pub fn (mut e Evaluator) eval_return_statement(stat ast.ReturnStatement, mut env object.Environment) ?&object.Object {
-	val := e.eval(stat.value, mut env) or { return none }
-	return &object.ReturnValue{
-		value: val
-	}
+pub fn (mut e Evaluator) eval_return_statement(stat ast.ReturnStatement, mut env object.Environment) ?ObjectWrapper {
+	val := (e.eval(stat.value, mut env) or { return none }).get_obj()
+	return e.wrap_value(object.ReturnValue{
+		value: &val
+	})
 }
 
-pub fn (mut e Evaluator) eval_var_statement(stat ast.VarStatement, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_var_statement(stat ast.VarStatement, mut env object.Environment) ?ObjectWrapper {
 	mutable := stat.token.literal == 'let'
 	name := stat.name.value
 	val := e.eval(stat.value, mut env) or { return none }
 
-	env.declare(name, val, mutable) or {
+	env.declare(name, val.get_obj(), mutable) or {
 		e.make_expr_err(stat.token, err.msg())
 		return none
 	}
 
-	return e.null_ptr
+	return e.get_null_wrapped()
 }
 
-pub fn (mut e Evaluator) eval_assign_statement(stat ast.AssignStatement, mut env object.Environment) ?&object.Object {
+pub fn (mut e Evaluator) eval_assign_statement(stat ast.AssignStatement, mut env object.Environment) ?ObjectWrapper {
 	name := stat.name.value
 	val := e.eval(stat.value, mut env) or { return none }
 
-	env.set(name, val) or {
+	env.set(name, val.get_obj()) or {
 		e.make_expr_err(stat.token, err.msg())
 		return none
 	}
 
-	return e.null_ptr
+	return e.get_null_wrapped()
 }
 
-pub fn (mut e Evaluator) eval_block(block ast.BlockStatement, mut env object.Environment) ?&object.Object {
-	mut result := e.null_ptr
+pub fn (mut e Evaluator) eval_block(block ast.BlockStatement, mut env object.Environment) ?ObjectWrapper {
+	mut result := e.get_null_wrapped()
 
 	for stat in block.statements {
-		result = e.eval(stat, mut env) or { e.null_ptr }
+		result = e.eval(stat, mut env) or { e.get_null_wrapped() }
 
-		if result is object.ReturnValue {
+		if result.get_obj() is object.ReturnValue {
 			return result
 		}
 	}
@@ -484,17 +519,18 @@ pub fn (mut e Evaluator) eval_block(block ast.BlockStatement, mut env object.Env
 	return result
 }
 
-pub fn (mut e Evaluator) eval_program(prog ast.Program, mut env object.Environment) ?&object.Object {
-	mut result := e.null_ptr
+pub fn (mut e Evaluator) eval_program(prog ast.Program, mut env object.Environment) ?ObjectWrapper {
+	mut result := e.get_null_wrapped()
 	e.scope_errors.clear()
 
 	for stat in prog.statements {
 		if e.eval_errors.len >= 1 {
 			return none
 		}
-		result = e.eval(stat, mut env) or { e.null_ptr }
-		if mut result is object.ReturnValue {
-			return result.value
+		result = e.eval(stat, mut env) or { e.get_null_wrapped() }
+		result_obj := result.get_obj()
+		if result_obj is object.ReturnValue {
+			return e.wrap_value(result_obj.value)
 		}
 	}
 
@@ -560,13 +596,11 @@ pub fn new_evaluator(src string, track bool, strat string) Evaluator {
 		obj_track: track
 		strat: strat
 	}
-	e.true_ptr = e.make_val_literal(true)
-	e.false_ptr = e.make_val_literal(false)
 
-	// println('init t ${e.true_ptr:p} r ${e.false_ptr:p}')
-
-	if e.true_ptr == e.false_ptr {
-	}
+	tp := e.make_val_literal(true).get_obj()
+	e.true_ptr = &tp
+	fp := e.make_val_literal(false).get_obj()
+	e.false_ptr = &fp
 
 	return e
 }

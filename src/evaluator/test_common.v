@@ -60,7 +60,7 @@ fn common(input string) &object.Object {
 
 	mut env := object.new_environment()
 
-	obj := eval.eval(program, mut env)
+	obj := eval.eval(program, mut env) or {panic('none returned from parse')}
 
 	for err in eval.eval_errors {
 		println(err.str())
@@ -68,7 +68,9 @@ fn common(input string) &object.Object {
 
 	assert eval.eval_errors.len == 0
 
-	return obj
+	obj_obj := obj.get_obj()
+
+	return &obj_obj
 }
 
 fn assert_val_match[T](exp T, actual T) {

@@ -43,7 +43,7 @@ pub fn run(file string, track bool, mut env object.Environment, strat string) {
 	}
 
 	if r := obj {
-		println((*r).string())
+		println((r.get_obj()).string())
 		if track {
 			println('LIT ALLOC: ${eval.lit_alloc_count} EVAL COUNT: ${eval.eval_count}')
 		}

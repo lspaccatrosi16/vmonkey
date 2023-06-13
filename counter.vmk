@@ -6,15 +6,4 @@ const counter = fn(x, y) {
     }
 }
 
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
-counter(0, 453)
+counter(0, 454)
