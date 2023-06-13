@@ -1,8 +1,8 @@
 build: 
-	@v -g -o dist/vmonkey ./
+	@v -g -v -keepc -no-bounds-checking -o dist/vmonkey ./
 
 run: build 
-	@./dist/vmonkey
+	@./dist/vmonkey -track
 
 test: 
 	@echo "Testing all"

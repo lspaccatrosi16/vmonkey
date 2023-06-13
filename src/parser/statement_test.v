@@ -87,3 +87,16 @@ fn ret_statement_test(s ast.Statement, val string, t string) bool {
 		return false
 	}
 }
+
+fn test_assign() {
+	input := 'a = 2;'
+
+	statements := common(input, 1)
+
+	stmt := statements[0]
+
+	if stmt is ast.AssignStatement {
+		assert test_expression(stmt.value, LiteralSpec{'2', 'IntegerLiteral'})
+		assert test_expression(stmt.name, LiteralSpec{'a', 'Identifier'})
+	}
+}

@@ -52,7 +52,7 @@ fn common(input string) &object.Object {
 
 	assert p.parse_errors.len == 0
 
-	mut eval := new_evaluator(input)
+	mut eval := new_evaluator(input, false)
 
 	defer {
 		eval.free()

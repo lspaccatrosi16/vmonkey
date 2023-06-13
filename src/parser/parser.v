@@ -442,6 +442,35 @@ fn (mut p Parser) parse_var_statement() ?ast.Statement {
 	return ast.Statement(stmt)
 }
 
+fn (mut p Parser) parse_assign_statement() ?ast.Statement {
+	tok := p.current_token
+
+	name := ast.Identifier{
+		value: tok.literal
+		token: tok
+	}
+
+	if !p.expect_peak(.assign) {
+		return none
+	}
+
+	p.next_token()
+
+	val := p.parse_expression(.lowest) or { return none }
+
+	if p.peak_token_is(.semicolon) {
+		p.next_token()
+	}
+
+	stmt := ast.AssignStatement{
+		token: tok
+		name: name
+		value: val
+	}
+
+	return ast.Statement(stmt)
+}
+
 fn (mut p Parser) parse_return_statement() ?ast.Statement {
 	tok := p.current_token
 
@@ -478,10 +507,14 @@ fn (mut p Parser) parse_expression_statement() ?ast.Statement {
 }
 
 fn (mut p Parser) parse_statement() ?ast.Statement {
-	return match p.current_token.token_type {
-		.let, .@const { p.parse_var_statement() }
-		.@return { p.parse_return_statement() }
-		else { p.parse_expression_statement() }
+	return if p.cur_token_is(.let) || p.cur_token_is(.@const) {
+		p.parse_var_statement()
+	} else if p.cur_token_is(.ident) && p.peak_token_is(.assign) {
+		p.parse_assign_statement()
+	} else if p.cur_token_is(.@return) {
+		p.parse_return_statement()
+	} else {
+		p.parse_expression_statement()
 	}
 }
 

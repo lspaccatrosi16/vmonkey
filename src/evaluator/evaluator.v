@@ -17,14 +17,17 @@ fn get_null_ptr() voidptr {
 [heap]
 pub struct Evaluator {
 	source_code string
+	obj_track   bool
 mut:
 	literal_map map[string]&object.Object
 	true_ptr    &object.Object
 	false_ptr   &object.Object
 	null_ptr    &object.Object
 pub mut:
-	eval_errors  []error.BaseError
-	scope_errors []error.BaseError
+	eval_errors     []error.BaseError
+	scope_errors    []error.BaseError
+	lit_alloc_count i64
+	eval_count      i64
 }
 
 pub fn (mut e Evaluator) make_val_literal(val object.Literal) &object.Object {
@@ -37,6 +40,9 @@ pub fn (mut e Evaluator) make_val_literal(val object.Literal) &object.Object {
 	if v := e.literal_map[key] {
 		return v
 	} else {
+		if _unlikely_(e.obj_track) {
+			e.lit_alloc_count++
+		}
 		obj := match val {
 			bool { object.Object(object.Boolean{val}) }
 			f64 { object.Object(object.Float{val}) }
@@ -63,6 +69,11 @@ pub fn (mut e Evaluator) free() {
 }
 
 pub fn (mut e Evaluator) eval(node ast.AstNode, mut env object.Environment) ?&object.Object {
+	if _unlikely_(e.obj_track) {
+		e.eval_count++
+		// dump(node)
+	}
+
 	mut ret := e.null_ptr
 
 	if e.scope_errors.len >= 1 {
@@ -305,6 +316,11 @@ pub fn (mut e Evaluator) eval_call_expression(expr ast.CallLiteral, mut env obje
 		args << v
 	}
 
+	if function.parameters.len != args.len {
+		e.make_expr_err(expr.token, 'Expecting ${function.parameters.len} arguments but got ${args.len}')
+		return none
+	}
+
 	mut ext_env := object.new_enclosed_environment(function.env)
 
 	for i, param in function.parameters {
@@ -330,6 +346,8 @@ pub fn (mut e Evaluator) eval_statement(stat ast.Statement, mut env object.Envir
 		return e.eval_return_statement(stat, mut env)
 	} else if stat is ast.VarStatement {
 		return e.eval_var_statement(stat, mut env)
+	} else if stat is ast.AssignStatement {
+		return e.eval_assign_statement(stat, mut env)
 	}
 
 	e.make_eval_error(stat)
@@ -349,6 +367,18 @@ pub fn (mut e Evaluator) eval_var_statement(stat ast.VarStatement, mut env objec
 	val := e.eval(stat.value, mut env) or { return none }
 
 	env.declare(name, val, mutable) or {
+		e.make_expr_err(stat.token, err.msg())
+		return none
+	}
+
+	return e.null_ptr
+}
+
+pub fn (mut e Evaluator) eval_assign_statement(stat ast.AssignStatement, mut env object.Environment) ?&object.Object {
+	name := stat.name.value
+	val := e.eval(stat.value, mut env) or { return none }
+
+	env.set(name, val) or {
 		e.make_expr_err(stat.token, err.msg())
 		return none
 	}
@@ -431,12 +461,14 @@ pub fn (mut e Evaluator) add_to_err(err error.BaseError) {
 	e.scope_errors << err
 }
 
-pub fn new_evaluator(src string) Evaluator {
+pub fn new_evaluator(src string, track bool) Evaluator {
+	println('new EVAL')
 	mut e := Evaluator{
 		source_code: src
 		true_ptr: get_null_ptr()
 		false_ptr: get_null_ptr()
 		null_ptr: get_null_ptr()
+		obj_track: track
 	}
 	e.true_ptr = e.make_val_literal(true)
 	e.false_ptr = e.make_val_literal(false)

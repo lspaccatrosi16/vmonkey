@@ -83,6 +83,11 @@ fn test_closure() {
 	run_tests(tests)
 }
 
+fn test_assign() {
+	tests := [TestType(IntTest{'let a = 2; a = 3; a;', 3})]
+	run_tests(tests)
+}
+
 fn run_tests(tests []TestType) {
 	print('RUN: ')
 	for i, t in tests {
