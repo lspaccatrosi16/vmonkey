@@ -38,6 +38,18 @@ pub fn (o Object) string() string {
 pub fn (o Object) is_null() bool {
 	return o is Null
 }
+pub fn (o Object) compare(r Object) !bool {
+	if o.type_name() != r.type_name() {
+		return error(make_mismatch_error_str(o, r))
+	}
+
+	return match o {
+		Integer {o.value == (r as Integer).value}
+		Float {o.value == (r as Float).value}
+		Boolean {o.value == (r as Boolean).value}
+		else {o.string() == r.string()}
+	}
+}
 
 pub fn bang(o Object) !Literal {
 	if o is Boolean {
@@ -56,6 +68,7 @@ pub fn negate(o Object) !Literal {
 		return error(make_incompat_error_str('-', o))
 	}
 }
+
 
 pub fn arithmetic(op string, l Object, r Object) !Literal {
 	if l.type_name() != r.type_name() {

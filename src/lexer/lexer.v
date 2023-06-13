@@ -100,7 +100,8 @@ fn (mut l Lexer) int_next_token() token.Token {
 	}
 
 	if l.ch == `#` {
-		return l.new_token(token.TokenType.comment, l.all_to_end_of_line())
+		contents := l.all_to_end_of_line()
+		return l.new_token(token.TokenType.comment, contents)
 	} else if is_letter(l.ch) {
 		idt := l.read_ident()
 		return l.new_token(token.lookup_ident(idt), idt)

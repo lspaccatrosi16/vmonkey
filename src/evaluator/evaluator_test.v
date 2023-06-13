@@ -88,6 +88,14 @@ fn test_assign() {
 	run_tests(tests)
 }
 
+fn test_recursion() {
+	tests := [
+		TestType(BoolTest{'const c = fn(x, y) {if (x > y) {return true} else {c(x + 1, y)}} c(0, 1000)', true}),
+	]
+
+	run_tests(tests)
+}
+
 fn run_tests(tests []TestType) {
 	print('RUN: ')
 	for i, t in tests {

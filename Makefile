@@ -1,8 +1,8 @@
 build: 
-	@v -g -v -keepc -no-bounds-checking -o dist/vmonkey ./
+	@v -g -keepc -profile profile.txt -o dist/vmonkey ./
 
 run: build 
-	@./dist/vmonkey -track
+	@./dist/vmonkey -s cache_v -track
 
 test: 
 	@echo "Testing all"

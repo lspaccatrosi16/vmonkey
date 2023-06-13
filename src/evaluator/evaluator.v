@@ -10,6 +10,8 @@ const null = object.new_null_value()
 
 const o_size = sizeof(object.Object)
 
+const allow_ostrat = ['cache_c', 'cache_v', 'direct']
+
 fn get_null_ptr() voidptr {
 	return &evaluator.null
 }
@@ -18,6 +20,7 @@ fn get_null_ptr() voidptr {
 pub struct Evaluator {
 	source_code string
 	obj_track   bool
+	strat       string
 mut:
 	literal_map map[string]&object.Object
 	true_ptr    &object.Object
@@ -30,7 +33,7 @@ pub mut:
 	eval_count      i64
 }
 
-pub fn (mut e Evaluator) make_val_literal(val object.Literal) &object.Object {
+fn (mut e Evaluator) cache_object_strat_c(val object.Literal) &object.Object {
 	key := match val {
 		bool { 'BOOL_${val}' }
 		f64 { 'F64_${val}' }
@@ -50,9 +53,92 @@ pub fn (mut e Evaluator) make_val_literal(val object.Literal) &object.Object {
 		}
 
 		obj_ptr := unsafe { memdup_uncollectable(&obj, int(evaluator.o_size)) }
+		unsafe { free(obj) }
 		e.literal_map[key] = obj_ptr
 		return obj_ptr
 	}
+}
+
+fn (mut e Evaluator) cache_object_strat_v(val object.Literal) &object.Object {
+	key := match val {
+		bool { 'BOOL_${val}' }
+		f64 { 'F64_${val}' }
+		i64 { 'I64_${val}' }
+	}
+
+	if v := e.literal_map[key] {
+		return v
+	} else {
+		if _unlikely_(e.obj_track) {
+			e.lit_alloc_count++
+		}
+		obj := match val {
+			bool { object.Object(object.Boolean{val}) }
+			f64 { object.Object(object.Float{val}) }
+			i64 { object.Object(object.Integer{val}) }
+		}
+
+		obj_ptr := vcalloc(int(evaluator.o_size))
+		unsafe {
+			vmemcpy(obj_ptr, &obj, int(evaluator.o_size))
+			e.literal_map[key] = obj_ptr // incompat warm
+		}
+		unsafe { free(obj) }
+		return obj_ptr
+	}
+}
+
+fn (e Evaluator) direct_object_strat(val object.Literal) &object.Object {
+	obj := match val {
+		bool { object.Object(object.Boolean{val}) }
+		f64 { object.Object(object.Float{val}) }
+		i64 { object.Object(object.Integer{val}) }
+	}
+
+	dest_ptr := vcalloc(int(evaluator.o_size))
+
+	unsafe {
+		vmemcpy(dest_ptr, &obj, int(evaluator.o_size))
+	}
+	unsafe { free(obj) }
+
+	// println('make ${val} ${&obj:p} ${dest_ptr:p}')
+
+	return dest_ptr // incompat ptr
+}
+
+pub fn (mut e Evaluator) make_val_literal(val object.Literal) &object.Object {
+	return match e.strat {
+		'cache_c' {
+			e.cache_object_strat_c(val)
+		}
+		'cache_v' {
+			e.cache_object_strat_v(val)
+		}
+		'direct' {
+			e.direct_object_strat(val)
+		}
+		else {
+			panic('unknown object stratergy ${e.strat}')
+		}
+	}
+}
+
+pub fn (mut e Evaluator) compare_vals(left object.Object, right object.Object) bool {
+	// println('l ${&left:p} r ${&right:p}')
+
+	match e.strat {
+		'cache_c', 'cache_v' {
+			return &left == &right
+		}
+		'direct' {
+			return left.compare(right) or { false }
+		}
+		else {
+			panic('unknown object stratergy ${e.strat}')
+		}
+	}
+	return false
 }
 
 pub fn (mut e Evaluator) free() {
@@ -141,9 +227,9 @@ pub fn (mut e Evaluator) eval_float(expr ast.FloatLiteral) ?&object.Object {
 pub fn (mut e Evaluator) eval_bool(expr ast.BooleanLiteral) ?&object.Object {
 	mut ret := e.null_ptr
 	if expr.value == 'true' {
-		ret = e.true_ptr
+		ret = e.make_val_literal(true)
 	} else if expr.value == 'false' {
-		ret = e.false_ptr
+		ret = e.make_val_literal(false)
 	} else {
 		e.make_convert_error(expr)
 		return none
@@ -224,15 +310,13 @@ pub fn (mut e Evaluator) eval_infix_expression(operator string, left object.Obje
 			e.handle_infix_node_result(object.arithmetic, operator, left, right, tkn)
 		}
 		'==' {
-			v := unsafe {
-				&left == &right
-			}
+			// println('l ${&left:p} r ${&right:p}')
+			v := e.compare_vals(&left, &right)
 			e.make_val_literal(v)
 		}
 		'!=' {
-			v := unsafe {
-				&left != &right
-			}
+			// println('l ${&left:p} r ${&right:p}')
+			v := !e.compare_vals(&left, &right)
 			e.make_val_literal(v)
 		}
 		'>', '>=', '<', '<=' {
@@ -461,17 +545,28 @@ pub fn (mut e Evaluator) add_to_err(err error.BaseError) {
 	e.scope_errors << err
 }
 
-pub fn new_evaluator(src string, track bool) Evaluator {
+pub fn new_evaluator(src string, track bool, strat string) Evaluator {
 	println('new EVAL')
+
+	if strat !in evaluator.allow_ostrat {
+		panic('Object stratergy ${strat} is invalid. Allowed stratergies: ${evaluator.allow_ostrat.join(', ')}')
+	}
+
 	mut e := Evaluator{
 		source_code: src
 		true_ptr: get_null_ptr()
 		false_ptr: get_null_ptr()
 		null_ptr: get_null_ptr()
 		obj_track: track
+		strat: strat
 	}
 	e.true_ptr = e.make_val_literal(true)
 	e.false_ptr = e.make_val_literal(false)
+
+	// println('init t ${e.true_ptr:p} r ${e.false_ptr:p}')
+
+	if e.true_ptr == e.false_ptr {
+	}
 
 	return e
 }

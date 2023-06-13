@@ -4,14 +4,11 @@ import os
 import runner
 import object
 
-pub fn run(path string, track bool) {
+pub fn run(path string, track bool, strat string) {
 	if !path.ends_with('.vmk') {
 		panic('File is not a vmonkey file')
 	}
-	contents := os.read_file(path) or {
-		panic(err.msg())
-	}
-
+	contents := os.read_file(path) or { panic(err.msg()) }
 
 	if contents.trim('\n') == '' {
 		panic('cannot have empty file')
@@ -19,9 +16,5 @@ pub fn run(path string, track bool) {
 
 	mut env := object.new_environment()
 
-
-	runner.run(contents, track, mut env)
-
-
-
+	runner.run(contents, track, mut env, strat)
 }

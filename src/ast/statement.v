@@ -50,10 +50,10 @@ pub fn (l VarStatement) stat_string() string {
 
 pub struct AssignStatement {
 pub:
-	name  Identifier  [required]
-	value Expression  [required]
+	name           Identifier    [required]
+	value          Expression    [required]
 	statement_type StatementType = .assign
-	token token.Token [required]
+	token          token.Token   [required]
 }
 
 pub fn (a AssignStatement) stat_string() string {

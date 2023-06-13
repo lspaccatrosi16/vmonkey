@@ -1,6 +1,5 @@
 module repl
 
-
 import readline
 import object
 import term
@@ -15,7 +14,7 @@ fn clear_screen() {
 	println('${'.rs':-10}: restart input')
 }
 
-pub fn start(track bool) {
+pub fn start(track bool, strat string) {
 	width, _ := term.get_terminal_size()
 	divider := '='.repeat(width)
 
@@ -54,8 +53,6 @@ pub fn start(track bool) {
 			break
 		}
 
-		runner.run(prog_ipt, track, mut env)
-
-		
+		runner.run(prog_ipt, track, mut env, strat)
 	}
 }

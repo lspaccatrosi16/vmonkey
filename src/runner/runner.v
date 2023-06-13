@@ -5,7 +5,7 @@ import parser
 import evaluator
 import object
 
-pub fn run(file string, track bool, mut env object.Environment) {
+pub fn run(file string, track bool, mut env object.Environment, strat string) {
 	mut l := lexer.new_lexer(file)
 
 	tokens := l.run_lexer()
@@ -29,7 +29,7 @@ pub fn run(file string, track bool, mut env object.Environment) {
 	}
 	statements := (*program).get_statements()
 
-	mut eval := evaluator.new_evaluator(file, track)
+	mut eval := evaluator.new_evaluator(file, track, strat)
 
 	obj := eval.eval(program, mut env)
 
