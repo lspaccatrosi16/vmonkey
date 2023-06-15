@@ -23,12 +23,14 @@ pub struct ObjectWrapper {
 }
 
 pub fn (o ObjectWrapper) get_obj() object.Object {
-	if unsafe { o.ptr == 0 } {
-		return o.obj
-	} else {
-		obj := unsafe { *o.ptr }
-		return obj
-	}
+	// if unsafe { o.ptr == 0 } {
+	// 	return o.obj
+	// } else {
+	// 	obj := unsafe { *o.ptr }
+	// 	return obj
+	// }
+
+	return o.obj
 }
 
 [heap]
@@ -127,15 +129,15 @@ fn (mut e Evaluator) cache_object_strat_v(val object.Literal) ObjectWrapper {
 			i64 { object.Object(object.Integer{val}) }
 		}
 
+		mut obj_ptr := get_null_ptr()
+
 		obj_ptr := vcalloc(int(evaluator.o_size))
 		unsafe {
 			vmemcpy(obj_ptr, &obj, int(evaluator.o_size))
+			e.literal_map[key] = obj_ptr // incompat warm
 		}
-		e.literal_map[key] = obj_ptr // incompat warm
 		unsafe { free(obj) }
-		return ObjectWrapper{
-			ptr: obj_ptr
-		}
+		return e.wrap_value(*obj_ptr)
 	}
 }
 
@@ -175,7 +177,7 @@ pub fn (mut e Evaluator) compare_vals(left ObjectWrapper, right ObjectWrapper) b
 
 	match e.strat {
 		'cache_c', 'cache_v' {
-			return &left.ptr == &right.ptr && &left.ptr != 0
+			return unsafe { &left.ptr == &right.ptr && &left.ptr != 0 }
 		}
 		'direct' {
 			return left.get_obj().compare(right.get_obj()) or { false }

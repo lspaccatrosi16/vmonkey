@@ -10,16 +10,19 @@ pub fn run(file string, track bool, mut env object.Environment, strat string) {
 
 	tokens := l.run_lexer()
 
+	println('Program Lexed')
+
 	if l.lex_errors.len >= 1 {
 		for e in l.lex_errors {
 			println(e.str())
 		}
-
 		return
 	}
 
 	mut p := parser.new_parser(tokens, file)
 	program := p.parse_program()
+
+	println('Program Parsed')
 
 	if p.parse_errors.len >= 1 {
 		for e in p.parse_errors {
@@ -32,6 +35,8 @@ pub fn run(file string, track bool, mut env object.Environment, strat string) {
 	mut eval := evaluator.new_evaluator(file, track, strat)
 
 	obj := eval.eval(program, mut env)
+
+	println('Program Evaluated')
 
 	if eval.eval_errors.len >= 1 {
 		for e in eval.eval_errors {
